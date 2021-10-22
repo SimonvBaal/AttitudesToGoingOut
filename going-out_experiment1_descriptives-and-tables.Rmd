@@ -10,9 +10,32 @@ library(kableExtra)
 library(tidyverse)
 ```
 
+
+```{r descriptives}
+
+DescriptivesLang <-
+  dataExp1 %>%
+  group_by(Eng) %>%
+  summarise(MeanAge = mean(Age),
+            SdAge = sd(Age),
+            n() / nrow(dataExp1))
+
+
+# For table in appendix.
+DescriptivesArms <-
+  dataExp1 %>%
+  group_by(Perspective, Condition, Sex) %>%
+  summarise(meanAge = mean(Age), 
+            sdAge = sd(Age),
+            medianAge = median(Age),
+            n = n()/30)
+
+
+```
+
 ``` {r Tables}
 # Create table data frames
-tdf <- Data %>% group_by(Condition, Perspective, Risk) %>%
+tdf <- dataExp1 %>% group_by(Condition, Perspective, Risk) %>%
   summarise(Mean = round(mean(VAS),2),
             SD = round(sd(VAS),2)) %>%
   ungroup() %>%

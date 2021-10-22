@@ -1,0 +1,111 @@
+---
+title: 'Attitudes Experiment 2: Cleaning'
+author: "Simon van Baal"
+date: "22/10/2021"
+output: html_document
+---
+
+```{r load data, include=FALSE}
+# Don't mind the errors, that's due to the column names Qualtrics creates.
+RawData_Self_Other <- read_csv("./data/Self-Isolation_No_Marker.csv")
+RawData_VAS <- read_csv("./data/Self-Isolation_VAS.csv")
+```
+
+```{r Data cleaning, include = FALSE}
+Self_SO <- 
+  RawData_Self_Other %>% 
+  filter(Group == "Self") %>% 
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+Other_SO <- 
+  RawData_Self_Other %>%
+  filter(Group == "Other") %>%
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+Self_VAS <- 
+  RawData_VAS %>% 
+  filter(Group == "Self") %>% 
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+Other_VAS <- 
+  RawData_VAS %>%
+  filter(Group == "Other") %>%
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+#Now rbind the 12 datasets created.
+colnames(Self_SO) <- colnames(Other_SO)
+colnames(Self_VAS) <- colnames(Other_SO)
+colnames(Other_VAS) <- colnames(Other_SO)
+
+dataExp2 <- rbind(Self_SO, Other_SO, Self_VAS, Other_VAS)
+
+rm(Other_SO, Other_VAS, Self_SO, Self_VAS)
+
+```
+
+```{r Tidying data}
+
+#Rearrange and rename columns
+dataExp2 <- 
+  dataExp2 %>% 
+  as_tibble() %>% 
+  mutate(Perspective = factor(Group),
+         Treatment = factor(
+           ifelse(
+             Treatment == "VAS", "Midpoint", "No Midpoint"
+           )
+         ),
+         Sex = factor(Sex),
+         Group = NULL) %>%
+  dplyr::select(ResponseId, Perspective, Treatment, GC, ends_with("_1"), everything())
+
+names(dataExp2)[5:34] <- sprintf("Question_%s",seq(1:30))
+rm(RawData_Self_Other, RawData_VAS)
+
+#Create long data.
+dataExp2 <- 
+  dataExp2 %>%
+  gather(key = "Question", value = "VAS", Question_1 : Question_30, factor_key = TRUE) %>%
+  arrange(ResponseId) %>%
+  mutate(Risk = factor(rep(rep(
+    RiskLevelSequence, times = nrow(dataExp2)))))
+
+#Exclude participants who only report at the bounds etc
+dataExp2 <-
+  dataExp2 %>% 
+  group_by(ResponseId) %>% 
+  filter(
+    round(mean(VAS)) > 0 & 
+    round(mean(VAS)) < 100, 
+    Sex != "Other") %>%
+  ungroup() %>%
+  mutate(AgeZeroCenter = Age - mean(Age))
+
+## VAS indicates on a scale from 0-100 to what extent the participant is certain 
+# it is ok to go out (certain it is not alright - certain it is alright)
+
+## Descriptives for in the paper
+Descriptives <- dataExp2 %>%
+  group_by(Sex) %>%
+  summarise(MeanAge = round(mean(Age), 1),
+            SdAge = round(sd(Age, na.rm = TRUE), 1),
+            n()/nrow(dataExp2)
+            )
+
+Aggregates <- dataExp2 %>%
+  group_by(Perspective, Treatment, ResponseId, Sex) %>%
+  summarise(VAS = mean(VAS),
+            Self_Rank = mean(GC),
+            Age = mean(Age)) %>%
+  ungroup() %>%
+  mutate(AgeZeroCenter = Age - mean(Age))
+
+dataExp2 <- 
+  dataExp2 %>%
+  mutate(Sex = factor(Sex),
+         ResponseId = factor(ResponseId))
+```

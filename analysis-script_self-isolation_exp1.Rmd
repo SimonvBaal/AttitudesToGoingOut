@@ -9,183 +9,97 @@ output: html_document
 library(tidyverse)
 library(afex)
 library(ggplot2)
-library(stats4)
+#library(stats4)
 library(emmeans)
 
 #library(grid)
-library(glmmTMB)
 library(ordinalCont)
-library(renv)
 
-renv::init()
 ```
 
 ```{r Load data, include = FALSE}
-Data <- read_csv("./data/data_self-isolation_exp1.csv")
-```
+# Possible to skip data cleaning phase:
 
-```{r Cleaning}
-# Risk level categorisation sequence
-RiskLevelSequence <- 
-  c("Low Risk", "High Risk", "Minimal Risk",
-  "High Risk", "High Risk", "Low Risk",
-  "High Risk", "High Risk", "Minimal Risk",
-  "High Risk", "Minimal Risk", "High Risk",
-  "Minimal Risk", "Minimal Risk", "Minimal Risk",
-  "Low Risk", "High Risk", "Low Risk",
-  "Low Risk", "High Risk", "Low Risk",
-  "High Risk", "High Risk", "Minimal Risk",
-  "High Risk", "High Risk", "Low Risk",
-  "High Risk", "High Risk", "High Risk"
-  )
-
-#Create long data.
-Data <-
-  Data %>%
-  gather(
-    key = "Question",
-    value = "VAS",
-    Question_1:Question_30,
-    factor_key = TRUE
-  ) %>%
-  arrange(ResponseId) %>%
-  mutate(Risk = rep(
-    RiskLevelSequence,
-  times = nrow(Data)),
-  Age = Age_1,
-  Age_1 = NULL)
-
-Data$Perspective <-
-  ifelse(
-    Data$Group == "Gen. Reasoning" |
-      Data$Group == "Gen. Imperative" |
-      Data$Group == "Gen. Control",
-    "General",
-    "Personal"
-  )
-
-Data$Condition <-
-  ifelse(
-    Data$Group == "Gen. Reasoning" |
-      Data$Group == "Per. Reasoning",
-    "Reasoning",
-    ifelse(
-      Data$Group == "Gen. Imperative" |
-        Data$Group == "Per. Imperative",
-      "Imperative",
-      "Control"
-    )
-  )
-
-## VAS indicates on a scale from 0-100 to what extent the participant is certain 
-# that it is ok to go out (certain it is not alright - certain it is alright)
-Data <-
-  Data %>%
-  group_by(ResponseId) %>%
-  filter(Res == "United Kingdom of Great Britain and Northern Ireland") %>%
-  ungroup() %>% 
-  mutate(Perspective = factor(Perspective), 
-         Condition = relevel(factor(Condition), ref = "Control"),
-         Risk = factor(Risk),
-         Sex = factor(Sex),
-         AgeZeroCenter = scale(Age, center = T, scale = F),
-         ResponseId = factor(ResponseId))
-
-DescriptivesLang <-
-  Data %>%
-  group_by(Eng) %>%
-  summarise(MeanAge = mean(Age),
-            SdAge = sd(Age),
-            n() / nrow(Data))
-
-# For table in appendix.
-DescriptivesArms <-
-  Data %>%
-  group_by(Perspective, Condition, Sex) %>%
-  summarise(meanAge = mean(Age), 
-            sdAge = sd(Age),
-            medianAge = median(Age),
-            n = n()/30)
-
+#dataExp1 <- read_csv("./data/going-out_experiment1_data.csv")
 ```
 
 
 ```{r Analysis, include = TRUE}
 
-contrasts(Data$Perspective) <- contr.sum(2)
-contrasts(Data$Sex) <- contr.sum(2)
+contrasts(dataExp1$Perspective) <- contr.sum(2)
+contrasts(dataExp1$Sex) <- contr.sum(2)
 
 ocmAllTreatment <-
   ocm(
     VAS ~
-      Condition * Risk +
+      Communication * Risk +
       Perspective +
       (1 | ResponseId),
-    data = Data,
+    data = dataExp1,
     link = "logit"
   )
 
-contrasts(Data$Risk) <- contr.sum(3)
+contrasts(dataExp1$Risk) <- contr.sum(3)
 
-ocmTreatmentCondition <-
+ocmTreatmentCommunication <-
   ocm(
     VAS ~
-      Condition * Risk +
+      Communication * Risk +
       Perspective +
       (1 | ResponseId),
-    data = Data,
+    data = dataExp1,
     link = "logit"
   )
 
-contrasts(Data$Condition) <- contr.sum(3)
-contrasts(Data$Risk) <- contr.treatment(3)
+contrasts(dataExp1$Communication) <- contr.sum(3)
+contrasts(dataExp1$Risk) <- contr.treatment(3)
 
 ocmTreatmentRisk <- 
   ocm(VAS ~ 
-        Condition*Risk +
+        Communication*Risk +
         Perspective + 
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
-Data <- 
-  Data %>%
+dataExp1 <- 
+  dataExp1 %>%
   mutate(Risk = relevel(Risk, ref = "Minimal Risk"))
 
 ocmTreatmentRiskRelevel <- 
   ocm(VAS ~ 
-        Condition*Risk +
+        Communication*Risk +
         Perspective + 
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
-Data <- 
-  Data %>%
+dataExp1 <- 
+  dataExp1 %>%
   mutate(Risk = relevel(Risk, ref = "Low Risk"))
 
 ocmTreatmentRiskRelevel2 <- 
   ocm(VAS ~ 
-        Condition*Risk +
+        Communication*Risk +
         Perspective + 
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
-contrasts(Data$Condition) <- contr.sum(3)
-contrasts(Data$Risk) <- contr.sum(3)
+contrasts(dataExp1$Communication) <- contr.sum(3)
+contrasts(dataExp1$Risk) <- contr.sum(3)
 
 # Age and sex effects
 
 ocmAgeSex <- 
   ocm(
     VAS ~
-      Condition * Risk +
+      Communication * Risk +
       Perspective +
       AgeZeroCenter +
       Sex +
       (1 | ResponseId),
-    data = Data,
+    data = dataExp1,
     link = "logit"
   )
 
@@ -193,59 +107,59 @@ ocmAgeSex <-
 
 # ocm1 <- 
 #   ocm(VAS ~ 
-#         Condition*Risk +
-#         Condition*Perspective +
+#         Communication*Risk +
+#         Communication*Perspective +
 #         AgeZeroCenter*Risk +
 #         (1|ResponseId),
-#       data = Data,
+#       data = dataExp1,
 #       link = "logit")
 # 
 # ocm2 <- 
 #   ocm(VAS ~ 
-#         Condition*Risk +
-#         Condition*Perspective +
+#         Communication*Risk +
+#         Communication*Perspective +
 #         AgeZeroCenter +
 #         (1|ResponseId),
-#       data = Data,
+#       data = dataExp1,
 #       link = "logit")
 # 
 # ocm3 <- 
 #   ocm(VAS ~ 
-#         Condition*Risk +
-#         Condition*Perspective +
+#         Communication*Risk +
+#         Communication*Perspective +
 #         (1|ResponseId),
-#       data = Data %>% mutate(VAS = VAS/100),
+#       data = dataExp1 %>% mutate(VAS = VAS/100),
 #       link = "logit")
 # 
 ocm4 <-
   ocm(VAS ~
-        Condition*Risk +
+        Communication*Risk +
         Perspective +
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
 ocm5 <-
   ocm(VAS ~
-        Condition*Risk +
+        Communication*Risk +
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
 ocm6 <-
   ocm(VAS ~
-        Condition + Risk +
+        Communication + Risk +
         Perspective +
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
 ocm7 <-
   ocm(VAS ~
-        Condition + 
+        Communication + 
         Perspective +
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
 ocm8 <-
@@ -253,30 +167,11 @@ ocm8 <-
         Risk +
         Perspective
         (1|ResponseId),
-      data = Data,
+      data = dataExp1,
       link = "logit")
 
-# 
-# # 
-# # LRTocm <- 
-# #   anova(continuousOrdinalAgeSex, continuousOrdinal, 
-# #       continuousOrdinal2, continuousOrdinal3, 
-# #       continuousOrdinal4, continuousOrdinal5)
-# # LRTocm
-# # 
-# # n = nrow(Data)
-# # vas <- seq(.01, .99, len = n)
-# # laser 
-# # 
-# # plot(vas, predict(continuousOrdinal,
-# # + newdata = data.frame(vas = vas, laser = laser, time = time),
-# # + type = "density"),
-# # + t = "l", col = "red", xlab = "v", ylab = "f(v)", ylim = c(0,4))
-# 
-# LRTExp1 <- 
-#   anova(ocm1, ocm2, ocm3,
-#       ocm4, ocm5, ocm6)
-# print(LRTExp1)
+# Comparison: 
+anova(ocm4, ocm5)
 
 
 
@@ -284,34 +179,34 @@ ocm8 <-
 ```
 
 
-```{r Alternative analysis for supplementary materials}
-Data <-
-  Data %>%
-  mutate(VAScat = factor(ifelse(VAS <= 10, 1,
+```{r Check results with alternative analysis}
+dataExp1 <-
+  dataExp1 %>%
+  mutate(VAScat = factor(ifelse(VAS <= .1, 1,
                                 ifelse(
-                                  VAS <= 20, 2,
-                                  ifelse(VAS <= 30, 3,
-                                         ifelse(VAS <= 40, 4,
+                                  VAS <= .20, 2,
+                                  ifelse(VAS <= .30, 3,
+                                         ifelse(VAS <= .40, 4,
                                                 ifelse(
-                                                  VAS <= 50, 5,
-                                                  ifelse(VAS <= 60, 6,
-                                                         ifelse(VAS <= 70, 7,
+                                                  VAS <= .50, 5,
+                                                  ifelse(VAS <= .60, 6,
+                                                         ifelse(VAS <= .70, 7,
                                                                 ifelse(
-                                                                  VAS <= 80, 8,
-                                                                  ifelse(VAS <= 90, 9,
-                                                                         ifelse(VAS <= 100, 10))
+                                                                  VAS <= .80, 8,
+                                                                  ifelse(VAS <= .90, 9,
+                                                                         ifelse(VAS <= 1, 10))
                                                                 )))
                                                 )))
                                 ))))
 
 ordinalRegExp1 <- 
   ordinal::clmm(VAScat ~
-      Condition * Risk +
+      Communication * Risk +
       Perspective +
       AgeZeroCenter +
       Sex +
       (1 | ResponseId),
-    data = Data,
+    data = dataExp1,
     link = "logit")
 
 ```
@@ -329,13 +224,13 @@ ciUpperLowHigh <- exp(-ocmTreatmentRisk$coefficients[4] + .0328*1.96)
 
 ## Communication factor coefficients
 
-estimateImperative <- exp(ocmTreatmentCondition$coefficients[2])
-ciLowerImperative <- exp(ocmTreatmentCondition$coefficients[2]) - .144*1.96
-ciUpperImperative <- exp(ocmTreatmentCondition$coefficients[2]) + .144*1.96
+estimateImperative <- exp(ocmTreatmentCommunication$coefficients[2])
+ciLowerImperative <- exp(ocmTreatmentCommunication$coefficients[2]) - .144*1.96
+ciUpperImperative <- exp(ocmTreatmentCommunication$coefficients[2]) + .144*1.96
 
-estimateResponsibility <- exp(ocmTreatmentCondition$coefficients[3])
-ciLowerResponsibility <- exp(ocmTreatmentCondition$coefficients[3]) - .145*1.96
-ciUpperResponsibility <- exp(ocmTreatmentCondition$coefficients[3]) + .145*1.96
+estimateResponsibility <- exp(ocmTreatmentCommunication$coefficients[3])
+ciLowerResponsibility <- exp(ocmTreatmentCommunication$coefficients[3]) - .145*1.96
+ciUpperResponsibility <- exp(ocmTreatmentCommunication$coefficients[3]) + .145*1.96
 
 # p value adjustment.
 #p.adjust(c(.006, .44, .69), method = 'BH')
@@ -414,7 +309,6 @@ ciUpperSex <- exp(ocmAgeSex$coefficients[8] +
 ```
 
 ```{r Perspective: assessing support for the null}
-
 
 Exp1BayesFactorModels <-
   bayesfactor_models(ocm4, ocm5, denominator = 1)
