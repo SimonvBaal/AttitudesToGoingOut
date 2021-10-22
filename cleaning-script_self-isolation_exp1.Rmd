@@ -1,0 +1,144 @@
+---
+title: "Cleaning Script Self-Isolation Experiment 1"
+author: "Simon van Baal"
+date: "20/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+```{r load data, include=FALSE}
+
+# Don't mind the errors, that's due to the column names Qualtrics creates.
+RawData <- read_csv("./raw-data/SelfIsolationFirstBatch.csv")
+RawData2 <- read_csv("./raw-data/SelfIsolationSecondBatch.csv")
+
+```
+
+```{r Data cleaning, include = FALSE}
+# NAs for all the observations except the treatment received need to be removed.
+RawData2 <- 
+  RawData2 %>% 
+  filter(Finished == TRUE) %>% 
+  select(-ReadingQ)
+
+
+#Personal Reasoning
+personalResponsibilityData <- RawData %>% 
+  filter(!is.na(`1_Per_Rea_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Per. Reasoning")
+personalResponsibilityData2 <- RawData2 %>%
+  filter(Group == "Personal Reasoning") %>%
+  select_if(function(x) !any(is.na(x))) %>%
+  mutate(Group = "Per. Reasoning")
+
+#Personal Imperative
+personalImperativeData <- RawData %>% 
+  filter(!is.na(`1_Per_Imp_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Per. Imperative")
+personalImperativeData2 <- RawData2 %>% 
+  filter(Group == "Personal Imperative") %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Per. Imperative")
+
+#General Reasoning
+generalResponsibilityData <- RawData %>% 
+  filter(!is.na(`1_Gen_Rea_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Gen. Reasoning")
+generalResponsibilityData2 <- RawData2 %>%
+  filter(Group == "General Reasoning") %>%
+  select_if(function(x) !any(is.na(x))) %>%
+  mutate(Group = "Gen. Reasoning")
+
+#General Imperative
+generalImperativeData <- RawData %>% 
+  filter(!is.na(`1_Gen_Imp_1`)) %>% 
+  select_if(function(x) !any(is.na(x)))  %>% 
+  mutate(Group = "Gen. Imperative")
+generalImperativeData2 <- RawData2 %>%
+  filter(!is.na(`1_Gen_Imp_1`)) %>% 
+  select_if(function(x) !any(is.na(x)))  %>% 
+  mutate(Group = "Gen. Imperative")
+
+#Personal Control
+personalControlData <- RawData %>% 
+  filter(!is.na(`1_Per_Con_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Per. Control")
+personalControlData2 <- RawData2 %>%
+  filter(!is.na(`1_Per_Con_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Per. Control")
+
+#General Control
+generalControlData <- RawData %>% 
+  filter(!is.na(`1_Gen_Con_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Gen. Control")
+generalControlData2 <- RawData2 %>%
+  filter(!is.na(`1_Gen_Con_1`)) %>% 
+  select_if(function(x) !any(is.na(x))) %>% 
+  mutate(Group = "Gen. Control")
+
+#Now rbind the 12 datasets created.
+colnames(personalResponsibilityData) <- colnames(generalControlData)
+colnames(personalImperativeData) <- colnames(generalControlData)
+colnames(generalResponsibilityData) <- colnames(generalControlData)
+colnames(generalImperativeData) <- colnames(generalControlData)
+colnames(personalControlData) <- colnames(generalControlData)
+
+colnames(personalResponsibilityData2) <- colnames(generalControlData2)
+colnames(personalImperativeData2) <- colnames(generalControlData2)
+colnames(generalResponsibilityData2) <- colnames(generalControlData2)
+colnames(generalImperativeData2) <- colnames(generalControlData2)
+colnames(personalControlData2) <- colnames(generalControlData2)
+
+
+Data <- rbind(personalResponsibilityData, personalImperativeData, generalResponsibilityData, generalImperativeData, personalControlData, generalControlData)
+Data2 <- rbind(personalResponsibilityData2, personalImperativeData2, generalResponsibilityData2, generalImperativeData2, personalControlData2, generalControlData2)
+
+rm(personalResponsibilityData, personalImperativeData, generalResponsibilityData, generalImperativeData, personalControlData, generalControlData)
+rm(personalResponsibilityData2, personalImperativeData2, generalResponsibilityData2, generalImperativeData2, personalControlData2, generalControlData2)
+
+#Rearrange and rename columns
+Data <- 
+  Data %>% 
+  as_tibble() %>% 
+  select(ResponseId, Group, 
+         ends_with("_1"), everything())
+
+Data2 <- 
+  Data2 %>% 
+  as_tibble() %>% 
+  select(ResponseId, Group, 
+         ends_with("_1"), everything())
+
+names(Data)[5:34] <- 
+  sprintf("Question_%s",seq(1:30))
+names(Data2)[5:34] <- 
+  sprintf("Question_%s",seq(1:30))
+
+
+AllData <- 
+  bind_rows(Data2, Data)
+
+Data <- 
+  AllData %>% 
+  select(ResponseId, Group, 
+         contains("Question"), Age_1, 
+         Gender, Eng, Res)
+
+rm(Data2, RawData, RawData2)
+
+write_csv(AllData, "data_self-isolation_exp1.csv")
+
+
+```
+
+
+

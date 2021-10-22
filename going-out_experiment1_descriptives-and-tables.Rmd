@@ -1,0 +1,104 @@
+---
+title: 'Attitudes Experiment 1: Descriptives and Tables'
+author: "Simon van Baal"
+date: "22/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(kableExtra)
+library(tidyverse)
+```
+
+``` {r Tables}
+# Create table data frames
+tdf <- Data %>% group_by(Condition, Perspective, Risk) %>%
+  summarise(Mean = round(mean(VAS),2),
+            SD = round(sd(VAS),2)) %>%
+  ungroup() %>%
+  mutate(Condition = ifelse(Condition == "Imperative", "zImperative",
+                             ifelse(Condition == "Reasoning", "Personal Responsibility", "Control")),
+         Perspective = ifelse(Perspective == "General", "Other", "Self")) %>%
+  arrange(desc(Condition), desc(Perspective)) %>%
+  mutate(Condition = ifelse(Condition == "zImperative", "Imperative", Condition))
+
+
+tdf1 <- 
+  tdf %>% filter(Risk == "High Risk") %>% 
+  select(Perspective, Mean, SD) %>%
+  rename(` ` = Perspective)
+
+tdf2 <- 
+  tdf %>% 
+  filter(Risk == "Low Risk") %>% select(Mean, SD)
+
+tdf3 <- 
+  tdf %>% 
+  filter(Risk == "Minimal Risk") %>% select(Mean, SD)
+
+cbind(tdf1, tdf2, tdf3) %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                full_width = T, 
+                font_size = 14) %>%
+  column_spec(c(1:2,4,6), color = "black") %>%
+  add_header_above(c(" " = 1, "High" = 2, "Low" = 2, "Minimal" = 2), align = "justify") %>%
+  add_header_above(c(" " = 1, "Risk" = 6), font_size = 18, align = "justify") %>%
+  pack_rows(group_label = "Imperative", 
+            start_row = 1, 
+            end_row = 2,
+            label_row_css = "background-color: #777; color: #fff;") %>%
+  pack_rows(group_label = "Personal Responsibility", 
+            start_row = 3, 
+            end_row = 4, 
+            label_row_css = "background-color: #777; color: #fff;") %>%
+  pack_rows(group_label = "Control",
+            start_row = 5,
+            end_row = 6, 
+            label_row_css = "background-color: #777; color: #fff;") %>%
+  save_kable(file = "Table.png")
+
+############################ Scenario prompts
+
+
+Scenarios_table <- tibble(Risk = rep(c("High Risk", "Low Risk", "Minimal Risk"), each = 10),
+                          Scenarios = c(
+"You want to get a new piece of furniture, because you have been spending a lot of time inside. It has been busy at the big furniture stores lately.",
+"You want to play basketball because a few of your friends asked you to join them today. You really enjoy playing basketball.",
+"You want to go for a walk in the park at 5pm. It is a popular neighbourhood park with narrow footpaths near your house.",
+"You want to go see your partner because you do not live together. Your only option is to go by public transport.",
+"You want to give care to a family member who is having a difficult time. You could leave it to one of your siblings, who does not need to use public transport to get there.",
+"You want to get a coffee. You can pay contactless at the popular cafe where you will have to wait outside on the busy footpath.",
+"You want to see your friend who has recently returned from abroad, as their quarantine just finished. You haven’t seen them in a very long time and they have invited you over for a drink.",
+"You want to return to the supermarket to pick up one item you forgot to buy. This means that you will have to go back into the busy supermarket.",
+"You want to go for a run on a popular running track by a park. People will be breathing heavily and running both ways.",
+"You want to go to a birthday party for one of your friends. Their apartment is not big, and there are quite a few people coming.",
+"You want to spend some time in the office at your workplace to concentrate on an important task. Most other colleagues on your floor are working from home. You will need to use the lift to get to your floor.",
+"You want to go deliver a meal to an elderly person in your close family. You worry that they are lonely.",
+"You want to go for a barbecue in the park with your friends. There will be four of you and you have not discussed social distancing with them.",
+"You want to go for a walk in the park close to your house. You plan to go at 7am.",
+"You want to go see your partner, but you do not live together. You will go by car, and you can park in front of their house.",
+"You want to do some minor repairs around your home. You plan to go to the hardware store on a weekday morning to ask for advice and to buy some materials.",
+"You want to go running on a track by the beach during working hours. It is a popular, quite narrow and winding track.",
+"You want to help your friend move house because it's hard to find help when everybody is self-isolating. It will be the two of you and their partner.",
+"You want to go see your close friend who lives close by. They tell you that they don't take social distancing very seriously.",
+"You want to go for a swim at the beach with three of your friends. To get to the beach you will need to go together in one car.",
+"You want to go for a vigorous walk at sunrise. The walking path is off the beaten track.",
+"You want to see your friend who lives close by and has invited you over for dinner. Your friend has been diligently self-isolating for 4 weeks.",
+"You want to go play basketball on your own on a Sunday morning. The basketball court is located outside, on the grounds of your quiet neighbourhood school.",
+"You want to play a round of golf alone. You have packed drinks and food, so you will not have to buy anything unnecessarily.",
+"You want to go sit in the park and read your book. It is a weekday and the park is quite large.",
+"You want to play tennis with your tennis partner. You will go early in the morning. You will arrive separately and stay at opposite sides of the court.",
+"You want to have dinner with your friends. The six of you have not seen each other for a long time. Some are more serious about social distancing than others.",
+"You want to spend some time on an outdoor site for your work to finish an overdue job. There will be other people on the site, but there is lots of space.",
+"You want to meet and go for a walk in a forest with three old friends. You have discussed social distancing with them.",
+"You want to go to the shops because you change your mind about what to make for dinner, but need some other ingredients to do it. You have already gone to the shops twice today."
+)) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = F, font_size = 9) %>%
+  column_spec(1, bold = T, border_right = T, width = "1.3cm") %>%
+  column_spec(2, width = "20cm", color = "black") %>%
+  save_kable(file = "Scenarios.png")
+
+
+```

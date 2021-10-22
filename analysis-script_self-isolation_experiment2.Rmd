@@ -1,0 +1,713 @@
+---
+title: "Self-Isolation Experiments 2 & 3"
+author: "Simon van Baal"
+date: "09/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(afex)
+library(ggsignif)
+library(stats4)
+library(emmeans)
+library(lawstat)
+library(cowplot)
+#library(ggpubr)
+library(grid)
+library(kableExtra)
+library(bayestestR)
+library(tidyverse)
+library(ordinalCont)
+
+```
+
+```{r load data, include=FALSE}
+# Don't mind the errors, that's due to the column names Qualtrics creates.
+RawData_Self_Other <- read_csv("./data/Self-Isolation_No_Marker.csv")
+RawData_VAS <- read_csv("./data/Self-Isolation_VAS.csv")
+```
+
+```{r Data cleaning, include = FALSE}
+Self_SO <- 
+  RawData_Self_Other %>% 
+  filter(Group == "Self") %>% 
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+Other_SO <- 
+  RawData_Self_Other %>%
+  filter(Group == "Other") %>%
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+Self_VAS <- 
+  RawData_VAS %>% 
+  filter(Group == "Self") %>% 
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+Other_VAS <- 
+  RawData_VAS %>%
+  filter(Group == "Other") %>%
+  select_if(function(x) !any(is.na(x))) %>%
+  dplyr::select(-contains('RT'))
+
+#Now rbind the 12 datasets created.
+colnames(Self_SO) <- colnames(Other_SO)
+colnames(Self_VAS) <- colnames(Other_SO)
+colnames(Other_VAS) <- colnames(Other_SO)
+
+dataExp2 <- rbind(Self_SO, Other_SO, Self_VAS, Other_VAS)
+
+rm(Other_SO, Other_VAS, Self_SO, Self_VAS)
+
+```
+
+```{r Tidying data}
+
+#Rearrange and rename columns
+dataExp2 <- 
+  dataExp2 %>% 
+  as_tibble() %>% 
+  mutate(Perspective = factor(Group),
+         Treatment = factor(
+           ifelse(
+             Treatment == "VAS", "Midpoint", "No Midpoint"
+           )
+         ),
+         Sex = factor(Sex),
+         Group = NULL) %>%
+  dplyr::select(ResponseId, Perspective, Treatment, GC, ends_with("_1"), everything())
+
+names(dataExp2)[5:34] <- sprintf("Question_%s",seq(1:30))
+rm(RawData_Self_Other, RawData_VAS)
+
+#Create long data.
+dataExp2 <- 
+  dataExp2 %>%
+  gather(key = "Question", value = "VAS", Question_1 : Question_30, factor_key = TRUE) %>%
+  arrange(ResponseId) %>%
+  mutate(Risk = factor(rep(rep(
+    RiskLevelSequence, times = nrow(dataExp2)))))
+
+#Exclude participants who only report at the bounds etc
+dataExp2 <-
+  dataExp2 %>% 
+  group_by(ResponseId) %>% 
+  filter(
+    round(mean(VAS)) > 0 & 
+    round(mean(VAS)) < 100, 
+    Sex != "Other") %>%
+  ungroup() %>%
+  mutate(AgeZeroCenter = Age - mean(Age))
+
+## VAS indicates on a scale from 0-100 to what extent the participant is certain 
+# it is ok to go out (certain it is not alright - certain it is alright)
+
+## Descriptives for in the paper
+Descriptives <- dataExp2 %>%
+  group_by(Sex) %>%
+  summarise(MeanAge = round(mean(Age), 1),
+            SdAge = round(sd(Age, na.rm = TRUE), 1),
+            n()/nrow(dataExp2)
+            )
+
+Aggregates <- dataExp2 %>%
+  group_by(Perspective, Treatment, ResponseId, Sex) %>%
+  summarise(VAS = mean(VAS),
+            Self_Rank = mean(GC),
+            Age = mean(Age)) %>%
+  ungroup() %>%
+  mutate(AgeZeroCenter = Age - mean(Age))
+
+dataExp2 <- 
+  dataExp2 %>%
+  mutate(Sex = factor(Sex),
+         ResponseId = factor(ResponseId))
+```
+
+
+```{r Ordinal analysis}
+ordinalDataExp2 <-
+  dataExp2 %>%
+  mutate(VAScat =
+           factor(
+             ifelse(
+               VAS <= 10, 1,
+               ifelse(
+                 VAS <= 20, 2,
+                 ifelse(
+                   VAS <= 30, 3,
+                   ifelse(
+                     VAS <= 40, 4,
+                     ifelse(
+                       VAS <= 50, 5,
+                       ifelse(
+                         VAS <= 60, 6,
+                         ifelse(
+                           VAS <= 70, 7,
+                           ifelse(
+                             VAS <= 80, 8,
+                             ifelse(
+                              VAS <= 90, 9,
+                               ifelse(
+                                 VAS <= 100, 10, NA
+                               ))))))))))))
+
+ordinalExp2 <- 
+  ordinal::clmm(
+  VAScat ~
+      Treatment * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = ordinalDataExp2,
+    link = "logit"
+)
+
+
+pairs(emmeans(ordinalExp2, ~Treatment|Risk))
+
+
+```
+
+```{r Analysis ocm}
+
+contrasts(dataExp2$Perspective) <- contr.sum(2)
+contrasts(dataExp2$Sex) <- contr.sum(2)
+
+ocmAllTreatmentExp2 <-
+  ocm(
+    VAS ~
+      Treatment * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = dataExp2,
+    link = "logit"
+  )
+
+dataExp2 <-
+  dataExp2 %>%
+  mutate(Risk = relevel(Risk, ref = "Minimal Risk"))
+
+ocmTreatmentRelevelExp2 <-
+  ocm(
+    VAS ~
+      Treatment * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = dataExp2,
+    link = "logit"
+  )
+
+dataExp2 <-
+  dataExp2 %>%
+  mutate(Risk = relevel(Risk, ref = "Low Risk"))
+
+ocmTreatmentRelevel2Exp2 <-
+  ocm(
+    VAS ~
+      Treatment * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = dataExp2,
+    link = "logit"
+  )
+
+# For the main effect of treatment:
+
+contrasts(dataExp2$Risk) <- contr.sum(3)
+
+ocmTreatmentTreatmentExp2 <-
+  ocm(
+    VAS ~
+      Treatment * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = dataExp2,
+    link = "logit"
+  )
+
+contrasts(dataExp2$Treatment) <- contr.sum(2)
+contrasts(dataExp2$Perspective) <- contr.treatment(2)
+
+ocmPerspectiveTreatmentExp2 <-
+  ocm(
+    VAS ~
+      Treatment * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = dataExp2,
+    link = "logit"
+  )
+
+# For comparisons of risk levels
+
+contrasts(dataExp2$Perspective) <- contr.sum(2)
+contrasts(dataExp2$Risk) <- contr.treatment(3)
+
+ocmTreatmentRiskExp2 <- 
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective + 
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+
+dataExp2 <-
+  dataExp2 %>%
+  mutate(Risk = relevel(Risk, ref = "Minimal Risk"))
+
+ocmTreatmentRisk2Exp2 <-
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective + 
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+contrasts(dataExp2$Risk) <- contr.sum(3)
+
+# Now analysing the effects of age and sex
+
+ocmAgeSexExp2 <- 
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective + 
+        AgeZeroCenter +
+        Sex +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+contrasts(dataExp2$Risk) <- contr.treatment(3)
+# Minimal risk is the reference level.
+ocmAgeRiskInteractionExp2 <- 
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective + 
+        AgeZeroCenter*Risk +
+        Sex +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+
+```
+
+
+```{r Likelihood ratio tests}
+
+
+
+ocm1Exp2 <- 
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+beepr::beep()
+ocm2Exp2 <- 
+  ocm(VAS ~ 
+        Treatment + Risk +
+        Perspective +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+ocm3Exp2 <- 
+  ocm(VAS ~ 
+        Treatment + 
+        Perspective +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+
+ocm4Exp2 <- 
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective +
+        Age * Risk +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+ocm5Exp2 <- 
+  ocm(VAS ~ 
+        Treatment*Risk +
+        Perspective +
+        Age +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+LRTExp2 <-
+  anova(ocm1Exp2, ocm2Exp2, ocm3Exp2)
+LRTExp2
+
+# Main effect of sex
+# lrSexExp2 <- 
+#   2 * (ocm1Exp2$penlogLik - ocm2Exp2$penlogLik)
+# edfSexExp2 <-
+#   abs(ocm1Exp2$edf - ocm2Exp2$edf)
+# dchisq(lrSexExp2, df = edfSexExp2)
+
+```
+
+
+## Reporting model coefficients 
+```{r VAS marker effect}
+estimateMarker <- exp(ocmTreatmentTreatmentExp2$coefficients[2])
+ciLowerMarker <- exp(ocmTreatmentTreatmentExp2$coefficients[2] - 1.96 * .1427)
+ciUpperMarker <- exp(ocmTreatmentTreatmentExp2$coefficients[2] + 1.96 * .1427)
+
+estimateMarkerHigh <- exp(ocmAllTreatmentExp2$coefficients[2])
+ciLowerMarkerHigh <- exp(ocmAllTreatmentExp2$coefficients[2] - 1.96 * .1450)
+ciupperMarkerHigh <- exp(ocmAllTreatmentExp2$coefficients[2] + 1.96 * .1450)
+
+estimateMarkerLow <- exp(ocmAllTreatmentRelevelExp2$coefficients[2])
+ciLowerMarkerLow <- exp(ocmAllTreatmentRelevelExp2$coefficients[2] - 1.96 * x)
+ciupperMarkerLow <- exp(ocmAllTreatmentRelevelExp2$coefficients[2] + 1.96 * x)
+
+estimateMarkerMinimal <- exp(ocmAllTreatmentRelevel2Exp2$coefficients[2])
+ciLowerMarkerMinimal <- exp(ocmAllTreatmentRelevel2Exp2$coefficients[2] - 1.96 * x)
+ciupperMarkerMinimal <- exp(ocmAllTreatmentRelevel2Exp2$coefficients[2] + 1.96 * x)
+
+
+p.adjust(c(.01, .021, .03), method = 'fdr')
+
+```
+
+```{r Risk effects}
+estimateHighLowExp2 <- exp(ocmTreatmentRiskExp2$coefficients[4])
+ciLowerHighLowExp2 <- exp(ocmTreatmentRiskExp2$coefficients[4] - 1.96 * .0388)
+ciUpperHighLowExp2 <- exp(ocmTreatmentRiskExp2$coefficients[4] + 1.96 * .0388)
+
+estimateMinimalLowExp2 <- 1/exp(ocmTreatmentRiskExp2$coefficients[3])
+ciLowerMinimalLowExp2 <- 1/exp(ocmTreatmentRiskExp2$coefficients[3] + 1.96 * .0467)
+ciUpperMinimalLowExp2 <- 1/exp(ocmTreatmentRiskExp2$coefficients[3] - 1.96 * .0467)
+
+
+estimateMinimalHighExp2 <- exp(ocmTreatmentRisk2Exp2$coefficients[4])
+ciLowerMinimalHighExp2 <- exp(ocmTreatmentRisk2Exp2$coefficients[4] - 1.96 * .0424)
+ciUpperMinimalHighExp2 <- exp(ocmTreatmentRisk2Exp2$coefficients[4] + 1.96 * .0424)
+
+
+```
+
+```{r Perspective effect}
+
+estimatePerspectiveExp2 <- exp(ocmPerspectiveTreatmentExp2$coefficients[5])
+ciLowerPerspectiveExp2 <- exp(ocmPerspectiveTreatmentExp2$coefficients[5] - 1.96 * .1421)
+ciUpperPerspectiveExp2 <- exp(ocmPerspectiveTreatmentExp2$coefficients[5] + 1.96 * .1421)
+
+```
+
+
+
+```{r Analysis cont'd}
+Aggregates %>% group_by(Treatment) %>% summarise(mean = mean(Self_Rank),
+                                                   sd = sd(Self_Rank))
+
+MWtest <- wilcox.test(Aggregates$Self_Rank, mu = 50, alternative = 'greater')
+wilcox.test(Aggregates$Self_Rank, mu = 50, conf.int = T, conf.level = .95)
+
+Z = qnorm(MWtest$p.value)
+Z
+
+bf.test(VAS ~ Treatment, data = Aggregates)
+
+dataExp2 %>% 
+  mutate(extremeObs = ifelse(VAS <= .1 | VAS >= .9 ))
+
+AggregatesExp1 <- 
+  Data %>% group_by(ResponseId) %>% summarise(Mean = mean(VAS), SD = sd(VAS))
+experimentComparison <- 
+  BayesFactor::ttestBF(Aggregates$VAS, AggregatesExp1$Mean)
+summary(experimentComparison)
+plot(AggregatesExp1$Mean, Aggregates$VAS)
+
+
+
+```
+
+
+```{r Assessing support for null findings}
+# Perspective factor
+
+bayesModels <- bayesfactor_models(model0, model1, model2, model3, denominator = 4)
+bayesfactor_inclusion(bayesModels)
+
+
+```
+
+
+```{r Graphs}
+dataExp2 <- 
+  dataExp2 %>% 
+  mutate(PerspectiveNumeric = ifelse(Perspective == "Self", 1, 0),
+         VAS = VAS/100)
+
+# The palette with black:
+cbbPalette <- c("#000000", "#E69F00", 
+                "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", 
+                "#D55E00", "#CC79A7")
+cbbPaletteBoxPlots <- c("#E69F00","#56B4E9","#000000")
+## Plot dimensions
+w = 6
+h = 4
+
+Midpoint_Density <- 
+  ggplot(dataExp2 %>% 
+           filter(Treatment == "Midpoint"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.05), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "VAS Midpoint") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  scale_fill_manual(values = cbbPalette) +
+  theme_light()
+
+NoMidpoint_Density <- 
+  ggplot(dataExp2 %>% 
+           filter(Treatment == "No Midpoint"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.05), 
+               alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "No Midpoint") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  scale_fill_manual(values = cbbPalette) +
+  theme_light()
+
+TreatmentPlots <-
+  ggarrange(
+    Midpoint_Density,
+    NoMidpoint_Density,
+    labels = c("A", "B"),
+    nrow = 1,
+    ncol = 2,
+    common.legend = TRUE,
+    legend = "bottom"
+  )
+TreatmentPlots
+ggsave("./figures/DensityPlotExp2.png", width = 2*w, height = 1.3*h) 
+
+################# Density plot of VAS per group
+a <- 
+  ggplot(dataExp2 %>% filter(Treatment == "Midpoint", Risk == "High Risk"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "VAS Midpoint, High Risk") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  theme_light()
+
+b <- 
+  ggplot(dataExp2 %>% filter(Treatment == "Midpoint", Risk == "Low Risk"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "VAS Midpoint, Low Risk") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  theme_light()
+
+c <- 
+  ggplot(dataExp2 %>% filter(Treatment == "Midpoint", Risk == "Minimal Risk"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "VAS Midpoint, Minimal Risk") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  theme_light()
+
+d <- 
+  ggplot(dataExp2 %>% filter(Treatment == "No Midpoint", Risk == "High Risk"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "No Midpoint, High Risk") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  theme_light()
+
+e <- 
+  ggplot(dataExp2 %>% filter(Treatment == "No Midpoint", Risk == "Low Risk"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "No Midpoint, Low Risk") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  theme_light()
+
+f <- 
+  ggplot(dataExp2 %>% filter(Treatment == "No Midpoint", Risk == "Minimal Risk"), 
+         aes(x = VAS, fill = Perspective)) +
+  geom_density(alpha = 0.4) +
+  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
+  labs(title = "No Midpoint, Minimal Risk") + 
+  ylab("Density") + 
+  xlab("Permissiveness") +
+  theme_light()
+
+
+RiskPlots_Exp2 <- 
+  ggarrange(a, b, c, d, e, f ,
+            labels = c("A", "B", "C", "D", "E", "F"), 
+            nrow = 2, ncol = 3, common.legend = TRUE, legend = "bottom")
+ggsave("./figures/RiskPlotsExp2.png", width = 3*w, height = 2.5*h) 
+
+RiskPlots_Exp2
+
+################################################## Box Plots
+
+
+boxRiskExp2 <-
+  ggplot(dataExp2 %>%
+           mutate(Risk = factor(
+             Risk,
+             levels = c("Minimal Risk",
+                        "Low Risk", "High Risk")
+           )),
+         aes(x = VAS, y = Risk, fill = Risk)) +
+  geom_boxplot(
+    position = position_nudge(y = 0.25),
+    outlier.shape = NA,
+    notch = TRUE,
+    width = 0.2
+  ) +
+  geom_point(position = position_jitter(height = 0.1),
+             size = .15,
+             col = "darkgrey") +
+  annotate(
+    "segment",
+    x = c(-.03, -.03, -.08),
+    xend = c(-.03, -.03, -.08),
+    y = c(1.23, 2.27, 1.18),
+    yend = c(2.22, 3.22, 3.30),
+    size = .8
+  ) +
+  annotate(
+    "text",
+    x = c(-.035, -.035, -.09),
+    y = c(1.75, 2.75, 2.25),
+    label = "***",
+    angle = 90,
+    size = 7
+  ) +
+  labs(title = "Permissiveness by Risk Level") +
+  xlab("Permissiveness") + ylab("Risk Level") +
+  xlim(-.10, 1.005) +
+  scale_fill_brewer(palette = "YlOrRd") +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  theme_light()
+boxRiskExp2
+ggsave("./figures/exp2RiskBoxPlot.png")
+
+
+
+
+```
+
+
+
+```{r Plots continued #2}
+
+RiskAggregates <- 
+  dataExp2 %>%
+  group_by(ResponseId, Sex, Risk) %>%
+  summarise(VAS = mean(VAS),
+            Age = mean(Age)) %>%
+  ungroup()
+
+AgeSexPlotExp2 <- 
+  ggplot(Aggregates) +
+    aes(x = Age, y = VAS, col = Sex) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    labs(y = "Permissiveness") +
+    scale_colour_viridis_d(begin = .3, end = .75) +
+    theme_light()
+AgeSexPlotExp2
+ggsave("./figures/AgeSexExp2.png", height = h*.95, width = w*.95)
+
+AgeRiskPlotExp2 <-
+  ggplot(RiskAggregates) +
+    aes(x = Age, y = VAS, col = Risk) +
+    geom_point(size = 1) +
+    geom_smooth(method = "lm") +
+    labs(y = "Permissiveness") +
+    scale_colour_brewer(palette = "YlOrRd") +
+    theme_light()
+
+PlotsAgeExp2 <- 
+  ggarrange(AgeRiskPlotExp2, AgeSexPlotExp2,
+            labels = c("A", "B"), 
+            nrow = 1, ncol = 2, 
+            common.legend = FALSE, legend = "bottom")
+ggsave("./figures/AgePlotsExp2.png", width = 2*w, height = 1.3*h) 
+
+Aggregates <-
+  Aggregates %>% 
+  arrange(VAS) %>% 
+  mutate(VAS_Rank = seq(1:nrow(Aggregates))/nrow(Aggregates)*100)
+
+
+```
+
+
+```{r Table}
+tdfExp2 <- dataExp2 %>% group_by(Treatment, Perspective, Risk) %>%
+  summarise(Mean = round(mean(VAS),2),
+            SD = round(sd(VAS),2)) %>%
+  arrange(desc(Treatment), desc(Risk), desc(Perspective)) %>%
+  ungroup()
+
+tdf1Exp2 <- 
+  tdfExp2 %>% 
+  filter(Risk == "Minimal Risk") %>% 
+  select(Mean, SD)
+
+tdf2Exp2 <- 
+  tdfExp2 %>% 
+  filter(Risk == "Low Risk") %>% select(Mean, SD)
+
+tdf3Exp2 <- 
+  tdfExp2 %>% 
+  filter(Risk == "High Risk") %>% 
+  select(Perspective, Mean, SD) %>%
+  rename(` ` = Perspective)
+
+cbind(tdf3Exp2, tdf2Exp2, tdf1Exp2) %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                full_width = T, 
+                font_size = 14) %>%
+  column_spec(c(1:2,4,6), color = "black") %>%
+  add_header_above(c(" " = 1, "High" = 2, "Low" = 2, "Minimal" = 2), align = "justify") %>%
+  add_header_above(c(" " = 1, "Risk" = 6), font_size = 18, align = "justify") %>%
+  pack_rows(group_label = "Midpoint Marker", 
+            start_row = 1, 
+            end_row = 2,
+            label_row_css = "background-color: #777; color: #fff;") %>%
+  pack_rows(group_label = "No Marker", 
+            start_row = 3, 
+            end_row = 4, 
+            label_row_css = "background-color: #777; color: #fff;") %>%
+  save_kable(file = "TableExp2.png")
+
+
+
+```
+
+

@@ -1,0 +1,426 @@
+---
+title: "Self-Isolation Exp 1"
+author: "Simon van Baal"
+date: "14/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(afex)
+library(ggplot2)
+library(stats4)
+library(emmeans)
+
+#library(grid)
+library(glmmTMB)
+library(ordinalCont)
+library(renv)
+
+renv::init()
+```
+
+```{r Load data, include = FALSE}
+Data <- read_csv("./data/data_self-isolation_exp1.csv")
+```
+
+```{r Cleaning}
+# Risk level categorisation sequence
+RiskLevelSequence <- 
+  c("Low Risk", "High Risk", "Minimal Risk",
+  "High Risk", "High Risk", "Low Risk",
+  "High Risk", "High Risk", "Minimal Risk",
+  "High Risk", "Minimal Risk", "High Risk",
+  "Minimal Risk", "Minimal Risk", "Minimal Risk",
+  "Low Risk", "High Risk", "Low Risk",
+  "Low Risk", "High Risk", "Low Risk",
+  "High Risk", "High Risk", "Minimal Risk",
+  "High Risk", "High Risk", "Low Risk",
+  "High Risk", "High Risk", "High Risk"
+  )
+
+#Create long data.
+Data <-
+  Data %>%
+  gather(
+    key = "Question",
+    value = "VAS",
+    Question_1:Question_30,
+    factor_key = TRUE
+  ) %>%
+  arrange(ResponseId) %>%
+  mutate(Risk = rep(
+    RiskLevelSequence,
+  times = nrow(Data)),
+  Age = Age_1,
+  Age_1 = NULL)
+
+Data$Perspective <-
+  ifelse(
+    Data$Group == "Gen. Reasoning" |
+      Data$Group == "Gen. Imperative" |
+      Data$Group == "Gen. Control",
+    "General",
+    "Personal"
+  )
+
+Data$Condition <-
+  ifelse(
+    Data$Group == "Gen. Reasoning" |
+      Data$Group == "Per. Reasoning",
+    "Reasoning",
+    ifelse(
+      Data$Group == "Gen. Imperative" |
+        Data$Group == "Per. Imperative",
+      "Imperative",
+      "Control"
+    )
+  )
+
+## VAS indicates on a scale from 0-100 to what extent the participant is certain 
+# that it is ok to go out (certain it is not alright - certain it is alright)
+Data <-
+  Data %>%
+  group_by(ResponseId) %>%
+  filter(Res == "United Kingdom of Great Britain and Northern Ireland") %>%
+  ungroup() %>% 
+  mutate(Perspective = factor(Perspective), 
+         Condition = relevel(factor(Condition), ref = "Control"),
+         Risk = factor(Risk),
+         Sex = factor(Sex),
+         AgeZeroCenter = scale(Age, center = T, scale = F),
+         ResponseId = factor(ResponseId))
+
+DescriptivesLang <-
+  Data %>%
+  group_by(Eng) %>%
+  summarise(MeanAge = mean(Age),
+            SdAge = sd(Age),
+            n() / nrow(Data))
+
+# For table in appendix.
+DescriptivesArms <-
+  Data %>%
+  group_by(Perspective, Condition, Sex) %>%
+  summarise(meanAge = mean(Age), 
+            sdAge = sd(Age),
+            medianAge = median(Age),
+            n = n()/30)
+
+```
+
+
+```{r Analysis, include = TRUE}
+
+contrasts(Data$Perspective) <- contr.sum(2)
+contrasts(Data$Sex) <- contr.sum(2)
+
+ocmAllTreatment <-
+  ocm(
+    VAS ~
+      Condition * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = Data,
+    link = "logit"
+  )
+
+contrasts(Data$Risk) <- contr.sum(3)
+
+ocmTreatmentCondition <-
+  ocm(
+    VAS ~
+      Condition * Risk +
+      Perspective +
+      (1 | ResponseId),
+    data = Data,
+    link = "logit"
+  )
+
+contrasts(Data$Condition) <- contr.sum(3)
+contrasts(Data$Risk) <- contr.treatment(3)
+
+ocmTreatmentRisk <- 
+  ocm(VAS ~ 
+        Condition*Risk +
+        Perspective + 
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+Data <- 
+  Data %>%
+  mutate(Risk = relevel(Risk, ref = "Minimal Risk"))
+
+ocmTreatmentRiskRelevel <- 
+  ocm(VAS ~ 
+        Condition*Risk +
+        Perspective + 
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+Data <- 
+  Data %>%
+  mutate(Risk = relevel(Risk, ref = "Low Risk"))
+
+ocmTreatmentRiskRelevel2 <- 
+  ocm(VAS ~ 
+        Condition*Risk +
+        Perspective + 
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+contrasts(Data$Condition) <- contr.sum(3)
+contrasts(Data$Risk) <- contr.sum(3)
+
+# Age and sex effects
+
+ocmAgeSex <- 
+  ocm(
+    VAS ~
+      Condition * Risk +
+      Perspective +
+      AgeZeroCenter +
+      Sex +
+      (1 | ResponseId),
+    data = Data,
+    link = "logit"
+  )
+
+## Testing for main effects
+
+# ocm1 <- 
+#   ocm(VAS ~ 
+#         Condition*Risk +
+#         Condition*Perspective +
+#         AgeZeroCenter*Risk +
+#         (1|ResponseId),
+#       data = Data,
+#       link = "logit")
+# 
+# ocm2 <- 
+#   ocm(VAS ~ 
+#         Condition*Risk +
+#         Condition*Perspective +
+#         AgeZeroCenter +
+#         (1|ResponseId),
+#       data = Data,
+#       link = "logit")
+# 
+# ocm3 <- 
+#   ocm(VAS ~ 
+#         Condition*Risk +
+#         Condition*Perspective +
+#         (1|ResponseId),
+#       data = Data %>% mutate(VAS = VAS/100),
+#       link = "logit")
+# 
+ocm4 <-
+  ocm(VAS ~
+        Condition*Risk +
+        Perspective +
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+ocm5 <-
+  ocm(VAS ~
+        Condition*Risk +
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+ocm6 <-
+  ocm(VAS ~
+        Condition + Risk +
+        Perspective +
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+ocm7 <-
+  ocm(VAS ~
+        Condition + 
+        Perspective +
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+ocm8 <-
+  ocm(VAS ~ 
+        Risk +
+        Perspective
+        (1|ResponseId),
+      data = Data,
+      link = "logit")
+
+# 
+# # 
+# # LRTocm <- 
+# #   anova(continuousOrdinalAgeSex, continuousOrdinal, 
+# #       continuousOrdinal2, continuousOrdinal3, 
+# #       continuousOrdinal4, continuousOrdinal5)
+# # LRTocm
+# # 
+# # n = nrow(Data)
+# # vas <- seq(.01, .99, len = n)
+# # laser 
+# # 
+# # plot(vas, predict(continuousOrdinal,
+# # + newdata = data.frame(vas = vas, laser = laser, time = time),
+# # + type = "density"),
+# # + t = "l", col = "red", xlab = "v", ylab = "f(v)", ylim = c(0,4))
+# 
+# LRTExp1 <- 
+#   anova(ocm1, ocm2, ocm3,
+#       ocm4, ocm5, ocm6)
+# print(LRTExp1)
+
+
+
+
+```
+
+
+```{r Alternative analysis for supplementary materials}
+Data <-
+  Data %>%
+  mutate(VAScat = factor(ifelse(VAS <= 10, 1,
+                                ifelse(
+                                  VAS <= 20, 2,
+                                  ifelse(VAS <= 30, 3,
+                                         ifelse(VAS <= 40, 4,
+                                                ifelse(
+                                                  VAS <= 50, 5,
+                                                  ifelse(VAS <= 60, 6,
+                                                         ifelse(VAS <= 70, 7,
+                                                                ifelse(
+                                                                  VAS <= 80, 8,
+                                                                  ifelse(VAS <= 90, 9,
+                                                                         ifelse(VAS <= 100, 10))
+                                                                )))
+                                                )))
+                                ))))
+
+ordinalRegExp1 <- 
+  ordinal::clmm(VAScat ~
+      Condition * Risk +
+      Perspective +
+      AgeZeroCenter +
+      Sex +
+      (1 | ResponseId),
+    data = Data,
+    link = "logit")
+
+```
+
+```{r Response scale}
+## Risk factor coefficients
+# Minimal Risk v High Risk
+estimateMinimalHigh <- exp(-ocmTreatmentRisk$coefficients[5])
+ciLowerMinimalHigh <- exp(-ocmTreatmentRisk$coefficients[5] - .0362*1.96)
+ciUpperMinimalHigh <- exp(-ocmTreatmentRisk$coefficients[5] + .0362*1.96)
+
+estimateLowHigh <- exp(-ocmTreatmentRisk$coefficients[4])
+ciLowerLowHigh <- exp(-ocmTreatmentRisk$coefficients[4] - .0328*1.96)
+ciUpperLowHigh <- exp(-ocmTreatmentRisk$coefficients[4] + .0328*1.96)
+
+## Communication factor coefficients
+
+estimateImperative <- exp(ocmTreatmentCondition$coefficients[2])
+ciLowerImperative <- exp(ocmTreatmentCondition$coefficients[2]) - .144*1.96
+ciUpperImperative <- exp(ocmTreatmentCondition$coefficients[2]) + .144*1.96
+
+estimateResponsibility <- exp(ocmTreatmentCondition$coefficients[3])
+ciLowerResponsibility <- exp(ocmTreatmentCondition$coefficients[3]) - .145*1.96
+ciUpperResponsibility <- exp(ocmTreatmentCondition$coefficients[3]) + .145*1.96
+
+# p value adjustment.
+#p.adjust(c(.006, .44, .69), method = 'BH')
+
+## Perspective factor coefficients
+
+estimatePerspective <- exp(ocm4$coefficients[6]*2)
+ciLowerPerspective <- exp(ocm4$coefficients[6]*2 - .0586*1.96)
+ciUpperPerspective <- exp(ocm4$coefficients[6]*2 + .0586*1.96)
+```
+
+```{r reporting interactions}
+
+## Interactions
+
+# Minimal Risk
+
+estimateImperativeMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[2])
+ciLowerImperativeMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[2] - 
+                                  .1558*1.96)
+ciUpperImperativeMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[2] + 
+                                  .1558*1.96)
+
+estimateResponsibilityMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[3])
+ciLowerResponsibilityMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[3] - 
+                                  .1568*1.96)
+ciUpperResponsibilityMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[3] + 
+                                  .1568*1.96)
+
+# Low Risk
+
+estimateImperativeLow <- exp(ocmTreatmentRiskRelevel2$coefficients[2])
+ciLowerImperativeLow <- exp(ocmTreatmentRiskRelevel2$coefficients[2] - 
+                              .1540*1.96)
+ciUpperImperativeLow <- exp(ocmTreatmentRiskRelevel2$coefficients[2] + 
+                              .1540*1.96)
+
+estimateResponsibilityLow <- exp(ocmTreatmentRiskRelevel2$coefficients[3])
+ciLowerResponsibilityLow <- exp(ocmTreatmentRiskRelevel2$coefficients[3] - 
+                                  .1551*1.96)
+ciUpperResponsibilityLow <- exp(ocmTreatmentRiskRelevel2$coefficients[3] + 
+                                  .1551*1.96)
+
+# High Risk
+
+estimateImperativeHigh <- exp(ocmAllTreatment$coefficients[2])
+ciLowerImperativeHigh <- exp(ocmAllTreatment$coefficients[2] - 
+                                  .1462*1.96)
+ciUpperImperativeHigh <- exp(ocmAllTreatment$coefficients[2] + 
+                                  .1462*1.96)
+
+estimateResponsibilityHigh <- exp(ocmAllTreatment$coefficients[3])
+ciLowerResponsibilityHigh <- exp(ocmAllTreatment$coefficients[3] - 
+                                  .1472*1.96)
+ciUpperResponsibilityHigh <- exp(ocmAllTreatment$coefficients[3] + 
+                                  .1472*1.96)
+
+```
+
+```{r Age and Sex}
+
+## Age
+estimateAge <- exp(ocmAgeSex$coefficients[7])
+ciLowerAge <- exp(ocmAgeSex$coefficients[7] -
+                    .0044 * 1.96)
+ciUpperAge <- exp(ocmAgeSex$coefficients[7] +
+                    .0044 * 1.96)
+
+# Sex
+estimateSex <- exp(ocmAgeSex$coefficients[8])
+ciLowerSex <- exp(ocmAgeSex$coefficients[8] -
+                    .057 * 1.96)
+ciUpperSex <- exp(ocmAgeSex$coefficients[8] +
+                    .057 * 1.96)
+
+```
+
+```{r Perspective: assessing support for the null}
+
+
+Exp1BayesFactorModels <-
+  bayesfactor_models(ocm4, ocm5, denominator = 1)
+
+Exp1BayesFactorInclusion <-
+  bayesfactor_inclusion(Exp1BayesFactorModels)
+
+Exp1BayesFactorInclusion
+```
