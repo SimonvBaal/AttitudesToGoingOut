@@ -99,13 +99,15 @@ dataExp1 <-
 rm(personalResponsibilityData, personalImperativeData, generalResponsibilityData, generalImperativeData, personalControlData, generalControlData)
 
 #Rearrange and rename columns
-dataExp1 <- 
-  dataExp1 %>% 
-  as_tibble() %>% 
-  select(-Practice_Gen_1,
-         ResponseId, Perspective, 
-         Communication,  
-         ends_with("_1"), everything())
+dataExp1 <-
+  dataExp1 %>%
+  as_tibble() %>%
+  select(-Practice_Gen_1) %>%
+  select(ResponseId,
+         Perspective,
+         Communication,
+         ends_with("_1"),
+         everything())
 
 names(dataExp1)[5:34] <- 
   sprintf("Question_%s",seq(1:30))
@@ -115,8 +117,6 @@ dataExp1 <-
   select(ResponseId, Perspective, Communication, 
          contains("Question"), Age_1, 
          Sex, Eng, Res)
-
-write_csv(dataExp1, "./data/going-out_experiment1_data.csv")
 
 
 ```
@@ -168,6 +168,8 @@ dataExp1 <-
          AgeZeroCenter = scale(Age, center = T, scale = F),
          ResponseId = factor(ResponseId))
 
+
+write_csv(dataExp1, "./data/going-out_experiment1_data.csv")
 
 ```
 

@@ -23,46 +23,16 @@ library(ordinalCont)
 ```
 
 
-```{r Ordinal analysis}
-ordinalDataExp2 <-
+```{r Load data}
+
+dataExp2 <- read_csv("./data/going-out_experiment2_data.csv")
+
+dataExp2 <- 
   dataExp2 %>%
-  mutate(VAScat =
-           factor(
-             ifelse(
-               VAS <= 10, 1,
-               ifelse(
-                 VAS <= 20, 2,
-                 ifelse(
-                   VAS <= 30, 3,
-                   ifelse(
-                     VAS <= 40, 4,
-                     ifelse(
-                       VAS <= 50, 5,
-                       ifelse(
-                         VAS <= 60, 6,
-                         ifelse(
-                           VAS <= 70, 7,
-                           ifelse(
-                             VAS <= 80, 8,
-                             ifelse(
-                              VAS <= 90, 9,
-                               ifelse(
-                                 VAS <= 100, 10, NA
-                               ))))))))))))
-
-ordinalExp2 <- 
-  ordinal::clmm(
-  VAScat ~
-      Treatment * Risk +
-      Perspective +
-      (1 | ResponseId),
-    data = ordinalDataExp2,
-    link = "logit"
-)
-
-
-pairs(emmeans(ordinalExp2, ~Treatment|Risk))
-
+  mutate(vasMarker = factor(vasMarker),
+         Risk = factor(Risk),
+         Perspective = factor(Perspective),
+         Sex = factor(Sex))
 
 ```
 
@@ -74,8 +44,10 @@ contrasts(dataExp2$Sex) <- contr.sum(2)
 ocmAllTreatmentExp2 <-
   ocm(
     VAS ~
-      Treatment * Risk +
+      vasMarker * Risk +
       Perspective +
+      AgeZeroCenter +
+      Sex +
       (1 | ResponseId),
     data = dataExp2,
     link = "logit"
@@ -88,8 +60,10 @@ dataExp2 <-
 ocmTreatmentRelevelExp2 <-
   ocm(
     VAS ~
-      Treatment * Risk +
+      vasMarker * Risk +
       Perspective +
+      AgeZeroCenter +
+      Sex + 
       (1 | ResponseId),
     data = dataExp2,
     link = "logit"
@@ -102,35 +76,41 @@ dataExp2 <-
 ocmTreatmentRelevel2Exp2 <-
   ocm(
     VAS ~
-      Treatment * Risk +
+      vasMarker * Risk +
       Perspective +
+      AgeZeroCenter +
+      Sex +
       (1 | ResponseId),
     data = dataExp2,
     link = "logit"
   )
 
-# For the main effect of treatment:
+# For the main effect of vasMarker:
 
 contrasts(dataExp2$Risk) <- contr.sum(3)
 
-ocmTreatmentTreatmentExp2 <-
+ocmvasMarkerTreatmentExp2 <-
   ocm(
     VAS ~
-      Treatment * Risk +
+      vasMarker * Risk +
       Perspective +
+      AgeZeroCenter +
+      Sex +
       (1 | ResponseId),
     data = dataExp2,
     link = "logit"
   )
 
-contrasts(dataExp2$Treatment) <- contr.sum(2)
+contrasts(dataExp2$vasMarker) <- contr.sum(2)
 contrasts(dataExp2$Perspective) <- contr.treatment(2)
 
 ocmPerspectiveTreatmentExp2 <-
   ocm(
     VAS ~
-      Treatment * Risk +
+      vasMarker * Risk +
       Perspective +
+      AgeZeroCenter +
+      Sex +
       (1 | ResponseId),
     data = dataExp2,
     link = "logit"
@@ -143,8 +123,10 @@ contrasts(dataExp2$Risk) <- contr.treatment(3)
 
 ocmTreatmentRiskExp2 <- 
   ocm(VAS ~ 
-        Treatment*Risk +
+        vasMarker * Risk +
         Perspective + 
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp2,
       link = "logit")
@@ -156,8 +138,10 @@ dataExp2 <-
 
 ocmTreatmentRisk2Exp2 <-
   ocm(VAS ~ 
-        Treatment*Risk +
+        vasMarker*Risk +
         Perspective + 
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp2,
       link = "logit")
@@ -168,7 +152,7 @@ contrasts(dataExp2$Risk) <- contr.sum(3)
 
 ocmAgeSexExp2 <- 
   ocm(VAS ~ 
-        Treatment*Risk +
+        vasMarker*Risk +
         Perspective + 
         AgeZeroCenter +
         Sex +
@@ -178,9 +162,10 @@ ocmAgeSexExp2 <-
 
 contrasts(dataExp2$Risk) <- contr.treatment(3)
 # Minimal risk is the reference level.
+
 ocmAgeRiskInteractionExp2 <- 
   ocm(VAS ~ 
-        Treatment*Risk +
+        vasMarker*Risk +
         Perspective + 
         AgeZeroCenter*Risk +
         Sex +
@@ -193,29 +178,33 @@ ocmAgeRiskInteractionExp2 <-
 
 
 ```{r Likelihood ratio tests}
-
-
+contrasts(dataExp2$Risk) <- contr.sum(3)
 
 ocm1Exp2 <- 
   ocm(VAS ~ 
-        Treatment*Risk +
+        vasMarker*Risk +
         Perspective +
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp2,
       link = "logit")
-beepr::beep()
+
 ocm2Exp2 <- 
   ocm(VAS ~ 
-        Treatment + Risk +
+        vasMarker + Risk +
         Perspective +
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp2,
       link = "logit")
 
 ocm3Exp2 <- 
-  ocm(VAS ~ 
-        Treatment + 
-        Perspective +
+  ocm(VAS ~ vasMarker + 
+        Perspective + 
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp2,
       link = "logit")
@@ -223,18 +212,10 @@ ocm3Exp2 <-
 
 ocm4Exp2 <- 
   ocm(VAS ~ 
-        Treatment*Risk +
+        vasMarker*Risk +
         Perspective +
-        Age * Risk +
-        (1|ResponseId),
-      data = dataExp2,
-      link = "logit")
-
-ocm5Exp2 <- 
-  ocm(VAS ~ 
-        Treatment*Risk +
-        Perspective +
-        Age +
+        AgeZeroCenter * Risk +
+        Sex +
         (1|ResponseId),
       data = dataExp2,
       link = "logit")
@@ -255,28 +236,19 @@ LRTExp2
 
 ## Reporting model coefficients 
 ```{r VAS marker effect}
-estimateMarker <- exp(ocmTreatmentTreatmentExp2$coefficients[2])
-ciLowerMarker <- exp(ocmTreatmentTreatmentExp2$coefficients[2] - 1.96 * .1427)
-ciUpperMarker <- exp(ocmTreatmentTreatmentExp2$coefficients[2] + 1.96 * .1427)
-
-estimateMarkerHigh <- exp(ocmAllTreatmentExp2$coefficients[2])
-ciLowerMarkerHigh <- exp(ocmAllTreatmentExp2$coefficients[2] - 1.96 * .1450)
-ciupperMarkerHigh <- exp(ocmAllTreatmentExp2$coefficients[2] + 1.96 * .1450)
-
-estimateMarkerLow <- exp(ocmAllTreatmentRelevelExp2$coefficients[2])
-ciLowerMarkerLow <- exp(ocmAllTreatmentRelevelExp2$coefficients[2] - 1.96 * x)
-ciupperMarkerLow <- exp(ocmAllTreatmentRelevelExp2$coefficients[2] + 1.96 * x)
-
-estimateMarkerMinimal <- exp(ocmAllTreatmentRelevel2Exp2$coefficients[2])
-ciLowerMarkerMinimal <- exp(ocmAllTreatmentRelevel2Exp2$coefficients[2] - 1.96 * x)
-ciupperMarkerMinimal <- exp(ocmAllTreatmentRelevel2Exp2$coefficients[2] + 1.96 * x)
+estimateMarker <- exp(ocmvasMarkerTreatmentExp2$coefficients[2])
+ciLowerMarker <- exp(ocmvasMarkerTreatmentExp2$coefficients[2] - 1.96 * .1355)
+ciUpperMarker <- exp(ocmvasMarkerTreatmentExp2$coefficients[2] + 1.96 * .1355)
 
 
-p.adjust(c(.01, .021, .03), method = 'fdr')
 
 ```
 
 ```{r Risk effects}
+# Main effect
+lrtMainRisk <-
+  anova(ocm2Exp2, ocm3Exp2)
+
 estimateHighLowExp2 <- exp(ocmTreatmentRiskExp2$coefficients[4])
 ciLowerHighLowExp2 <- exp(ocmTreatmentRiskExp2$coefficients[4] - 1.96 * .0388)
 ciUpperHighLowExp2 <- exp(ocmTreatmentRiskExp2$coefficients[4] + 1.96 * .0388)
@@ -290,7 +262,7 @@ estimateMinimalHighExp2 <- exp(ocmTreatmentRisk2Exp2$coefficients[4])
 ciLowerMinimalHighExp2 <- exp(ocmTreatmentRisk2Exp2$coefficients[4] - 1.96 * .0424)
 ciUpperMinimalHighExp2 <- exp(ocmTreatmentRisk2Exp2$coefficients[4] + 1.96 * .0424)
 
-
+# p adjustment not necessary for risk factor - would display the same ps in MS either way.
 ```
 
 ```{r Perspective effect}
@@ -301,40 +273,211 @@ ciUpperPerspectiveExp2 <- exp(ocmPerspectiveTreatmentExp2$coefficients[5] + 1.96
 
 ```
 
+```{r Demographics effects}
+
+estimateAgeExp2 <- exp(ocmAgeSexExp2$coefficients[6])
+ciLowerAgeExp2 <- exp(ocmAgeSexExp2$coefficients[6] - 1.96 * .0062)
+ciUpperAgeExp2 <- exp(ocmAgeSexExp2$coefficients[6] + 1.96 * .0062)
+
+estimateSexExp2 <- exp(ocmAgeSexExp2$coefficients[7])
+ciLowerSexExp2 <- exp(ocmAgeSexExp2$coefficients[7] - 1.96 * .0728)
+ciUpperSexExp2 <- exp(ocmAgeSexExp2$coefficients[7] + 1.96 * .0728)
+
+```
 
 
 ```{r Analysis cont'd}
-Aggregates %>% group_by(Treatment) %>% summarise(mean = mean(Self_Rank),
-                                                   sd = sd(Self_Rank))
+Aggregates %>%
+  group_by(vasMarker) %>%
+  summarise(mean = mean(Self_Rank),
+            sd = sd(Self_Rank))
 
 MWtest <- wilcox.test(Aggregates$Self_Rank, mu = 50, alternative = 'greater')
 wilcox.test(Aggregates$Self_Rank, mu = 50, conf.int = T, conf.level = .95)
 
 Z = qnorm(MWtest$p.value)
 Z
+```
 
-bf.test(VAS ~ Treatment, data = Aggregates)
+```{r Midpoint test}
 
-dataExp2 %>% 
-  mutate(extremeObs = ifelse(VAS <= .1 | VAS >= .9 ))
+MidpointTestDf <- 
+  dataExp2 %>% 
+  mutate(extremeObs = ifelse(VAS <= .1 | VAS >= .9, 1, 0))
 
-AggregatesExp1 <- 
-  Data %>% group_by(ResponseId) %>% summarise(Mean = mean(VAS), SD = sd(VAS))
-experimentComparison <- 
-  BayesFactor::ttestBF(Aggregates$VAS, AggregatesExp1$Mean)
-summary(experimentComparison)
-plot(AggregatesExp1$Mean, Aggregates$VAS)
+glmmMidpointTest <-
+  mixed(extremeObs ~
+          Risk +
+          Perspective +
+          vasMarker +
+          Sex +
+          AgeZeroCenter +
+          (1 | ResponseId),
+        data = MidpointTestDf,
+        family = "binomial",
+        method = "LRT")
 
-
+nice(glmmMidpointTest)
 
 ```
 
 
-```{r Assessing support for null findings}
-# Perspective factor
+```{r Ordinal analysis}
+# Possible to check results with regular ordinal regression, e.g.: 
 
-bayesModels <- bayesfactor_models(model0, model1, model2, model3, denominator = 4)
-bayesfactor_inclusion(bayesModels)
+#ordinalDataExp2 <-
+#   dataExp2 %>%
+#   mutate(VAScat =
+#            factor(
+#              ifelse(
+#                VAS <= .10, 1,
+#                ifelse(
+#                  VAS <= .20, 2,
+#                  ifelse(
+#                    VAS <= .30, 3,
+#                    ifelse(
+#                      VAS <= .40, 4,
+#                      ifelse(
+#                        VAS <= .50, 5,
+#                        ifelse(
+#                          VAS <= .60, 6,
+#                          ifelse(
+#                            VAS <= .70, 7,
+#                            ifelse(
+#                              VAS <= .80, 8,
+#                              ifelse(
+#                               VAS <= .90, 9,
+#                                ifelse(
+#                                  VAS <= 1, 10, NA
+#                                ))))))))))))
+# 
+# ordinalExp2 <- 
+#   ordinal::clmm(
+#   VAScat ~
+#       vasMarker * Risk +
+#       Perspective +
+#     AgeZeroCenter +
+#     Sex +
+#       (1 | ResponseId),
+#     data = ordinalDataExp2,
+#     link = "logit"
+# )
+# 
+# 
+# pairs(emmeans(ordinalExp2, ~vasMarker|Risk))
+
+
+```
+
+```{r Testing difference between exp1 and exp2}
+# Here we evaluate whether gathering data at different timepoints affected
+# judgments.
+
+dataExp1 <-
+  dataExp1 %>%
+  mutate(
+    Experiment = "First",
+    vasMarker = "No Midpoint",
+    Perspective = factor(
+      ifelse(
+        Perspective == "Personal",
+        "Self", 
+        "Other"))
+  )
+
+dataExp2 <-
+  dataExp2 %>%
+  mutate(Experiment = "Second",
+         Communication = "Imperative")
+
+fullData <- 
+  bind_rows(dataExp1, dataExp2) %>%
+  mutate(Experiment = factor(Experiment),
+         vasMarker = factor(vasMarker),
+         Communication = factor(Communication),
+         ResponseId = factor(ResponseId))
+
+contrasts(fullData$Experiment) <- contr.sum(2)
+contrasts(fullData$Perspective) <- contr.sum(2)
+contrasts(fullData$Risk) <- contr.sum(3)
+contrasts(fullData$vasMarker) <- contr.sum(2)
+contrasts(fullData$Sex) <- contr.sum(2)
+contrasts(fullData$Communication) <- contr.sum(3)
+
+ocmTimepoint <- 
+  ocm(VAS ~ 
+        Experiment +
+        Communication +
+        Risk +
+        Perspective +
+        vasMarker +
+        Sex +
+        AgeZeroCenter, 
+      data = fullData,
+      link = "logit")
+
+ocmTimepointAbsent <- 
+  ocm(VAS ~ 
+      #  Experiment +
+        Communication +
+        Risk +
+        Perspective +
+        vasMarker +
+        Sex +
+        AgeZeroCenter, 
+      data = fullData,
+      link = "logit")
+
+#anova(ocmTimepoint, ocmTimepointAbsent)
+
+# model coefficient times 2 because of sum contrasts
+estimateTimepoint <- exp(ocmTimepoint$coefficients[2] * 2)
+ciLowerTimepoint <- exp(ocmTimepoint$coefficients[2] * 2 - .01593 * 1.96)
+ciUpperTimepoint <- exp(ocmTimepoint$coefficients[2] * 2+ .01593 * 1.96)
+```
+
+```{r Assessing support for null findings}
+# Perspective factor inclusion test
+
+ocm6Exp2 <- 
+  ocm(VAS ~ 
+        vasMarker + 
+        Risk +
+        AgeZeroCenter +
+        Sex +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+
+bayesPerspectiveExp2 <- 
+  bayesfactor_models(ocm2Exp2, 
+                     ocm6Exp2, 
+                     denominator = 1)
+
+# vasMarker inclusion test
+
+ocm7Exp2 <- 
+  ocm(VAS ~ 
+        Risk +
+        Perspective +
+        AgeZeroCenter +
+        Sex +
+        (1|ResponseId),
+      data = dataExp2,
+      link = "logit")
+
+
+bayesVasMarkerExp2 <- 
+  bayesfactor_models(ocm2Exp2, 
+                     ocm7Exp2, 
+                     denominator = 1)
+
+```
+
+```{r Save workspace}
+
+save.image("./.RData")
 
 
 ```

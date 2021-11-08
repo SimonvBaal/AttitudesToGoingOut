@@ -10,17 +10,22 @@ library(tidyverse)
 library(afex)
 library(ggplot2)
 #library(stats4)
-library(emmeans)
 
 #library(grid)
 library(ordinalCont)
 
 ```
 
-```{r Load data, include = FALSE}
+```{r Load data, echo = FALSE}
 # Possible to skip data cleaning phase:
 
-#dataExp1 <- read_csv("./data/going-out_experiment1_data.csv")
+dataExp1 <- read_csv("./data/going-out_experiment1_data.csv", )
+dataExp1 <-
+  dataExp1 %>%
+  mutate(Sex = factor(Sex),
+         Communication = relevel(factor(Communication), ref = "Control"),
+         Risk = factor(Risk),
+         Perspective = factor(Perspective))
 ```
 
 
@@ -33,7 +38,9 @@ ocmAllTreatment <-
   ocm(
     VAS ~
       Communication * Risk +
-      Perspective +
+      Perspective + 
+      AgeZeroCenter +
+      Sex +
       (1 | ResponseId),
     data = dataExp1,
     link = "logit"
@@ -41,11 +48,31 @@ ocmAllTreatment <-
 
 contrasts(dataExp1$Risk) <- contr.sum(3)
 
+# Main effect for communication
+
 ocmTreatmentCommunication <-
   ocm(
     VAS ~
       Communication * Risk +
       Perspective +
+      AgeZeroCenter +
+      Sex +
+      (1 | ResponseId),
+    data = dataExp1,
+    link = "logit"
+  )
+
+dataExp1 <- 
+  dataExp1 %>%
+  mutate(Communication = relevel(Communication, ref = "Imperative"))
+
+ocmTreatmentCommunicationRelevel <-
+  ocm(
+    VAS ~
+      Communication * Risk +
+      Perspective +
+      AgeZeroCenter +
+      Sex +
       (1 | ResponseId),
     data = dataExp1,
     link = "logit"
@@ -58,10 +85,13 @@ ocmTreatmentRisk <-
   ocm(VAS ~ 
         Communication*Risk +
         Perspective + 
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp1,
       link = "logit")
 
+# Relevel risk for additional comparisons.
 dataExp1 <- 
   dataExp1 %>%
   mutate(Risk = relevel(Risk, ref = "Minimal Risk"))
@@ -70,18 +100,40 @@ ocmTreatmentRiskRelevel <-
   ocm(VAS ~ 
         Communication*Risk +
         Perspective + 
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp1,
       link = "logit")
+
+dataExp1 <-
+  dataExp1 %>%
+  mutate(Communication = relevel(Communication, ref = "Control"))
+
+contrasts(dataExp1$Communication) <- contr.treatment(3)
+
+ocmAllTreatmentRiskRelevel <- 
+  ocm(VAS ~ 
+        Communication*Risk +
+        Perspective + 
+        AgeZeroCenter +
+        Sex +
+        (1|ResponseId),
+      data = dataExp1,
+      link = "logit")
+
+## Relevel risk again for last communication effect estimate
 
 dataExp1 <- 
   dataExp1 %>%
   mutate(Risk = relevel(Risk, ref = "Low Risk"))
 
-ocmTreatmentRiskRelevel2 <- 
+ocmAllTreatmentRiskRelevel2 <- 
   ocm(VAS ~ 
         Communication*Risk +
         Perspective + 
+        AgeZeroCenter +
+        Sex +
         (1|ResponseId),
       data = dataExp1,
       link = "logit")
@@ -102,117 +154,108 @@ ocmAgeSex <-
     data = dataExp1,
     link = "logit"
   )
+```
 
-## Testing for main effects
 
-# ocm1 <- 
-#   ocm(VAS ~ 
-#         Communication*Risk +
-#         Communication*Perspective +
-#         AgeZeroCenter*Risk +
-#         (1|ResponseId),
-#       data = dataExp1,
-#       link = "logit")
-# 
-# ocm2 <- 
-#   ocm(VAS ~ 
-#         Communication*Risk +
-#         Communication*Perspective +
-#         AgeZeroCenter +
-#         (1|ResponseId),
-#       data = dataExp1,
-#       link = "logit")
-# 
-# ocm3 <- 
-#   ocm(VAS ~ 
-#         Communication*Risk +
-#         Communication*Perspective +
-#         (1|ResponseId),
-#       data = dataExp1 %>% mutate(VAS = VAS/100),
-#       link = "logit")
-# 
+```{r Analysis continued}
+## Testing for main effects and interactions
+
+ocm1 <-
+  ocm(VAS ~
+        Communication*Risk +
+        Perspective*Communication +
+        AgeZeroCenter +
+        Sex +
+        (1|ResponseId),
+      data = dataExp1,
+      link = "logit")
+
+ocm2 <-
+  ocm(VAS ~
+        Communication + 
+        Risk +
+        Perspective +
+        AgeZeroCenter +
+        Sex + 
+        (1|ResponseId),
+      data = dataExp1,
+      link = "logit")
+
+ocm3 <-
+  ocm(VAS ~
+        Risk +
+        Perspective +
+        AgeZeroCenter +
+        Sex + 
+        (1|ResponseId),
+      data = dataExp1,
+      link = "logit")
+
 ocm4 <-
-  ocm(VAS ~
-        Communication*Risk +
-        Perspective +
-        (1|ResponseId),
-      data = dataExp1,
-      link = "logit")
-
-ocm5 <-
-  ocm(VAS ~
-        Communication*Risk +
-        (1|ResponseId),
-      data = dataExp1,
-      link = "logit")
-
-ocm6 <-
-  ocm(VAS ~
-        Communication + Risk +
-        Perspective +
-        (1|ResponseId),
-      data = dataExp1,
-      link = "logit")
-
-ocm7 <-
   ocm(VAS ~
         Communication + 
         Perspective +
+        AgeZeroCenter +
+        Sex + 
         (1|ResponseId),
       data = dataExp1,
       link = "logit")
 
-ocm8 <-
-  ocm(VAS ~ 
-        Risk +
-        Perspective
+# Exclude perspective
+ocm5 <-
+  ocm(VAS ~
+        Communication * Risk +
+       # Perspective +
+        AgeZeroCenter +
+        Sex + 
         (1|ResponseId),
       data = dataExp1,
       link = "logit")
-
-# Comparison: 
-anova(ocm4, ocm5)
-
-
 
 
 ```
 
 
 ```{r Check results with alternative analysis}
-dataExp1 <-
-  dataExp1 %>%
-  mutate(VAScat = factor(ifelse(VAS <= .1, 1,
-                                ifelse(
-                                  VAS <= .20, 2,
-                                  ifelse(VAS <= .30, 3,
-                                         ifelse(VAS <= .40, 4,
-                                                ifelse(
-                                                  VAS <= .50, 5,
-                                                  ifelse(VAS <= .60, 6,
-                                                         ifelse(VAS <= .70, 7,
-                                                                ifelse(
-                                                                  VAS <= .80, 8,
-                                                                  ifelse(VAS <= .90, 9,
-                                                                         ifelse(VAS <= 1, 10))
-                                                                )))
-                                                )))
-                                ))))
-
-ordinalRegExp1 <- 
-  ordinal::clmm(VAScat ~
-      Communication * Risk +
-      Perspective +
-      AgeZeroCenter +
-      Sex +
-      (1 | ResponseId),
-    data = dataExp1,
-    link = "logit")
+# If necessary, you may cross-check with ordinal regression.
+# We lose some information, so the std errors increase and estimates may be biased
+# downward.
+#dataExp1 <-
+#   dataExp1 %>%
+#   mutate(VAScat = factor(ifelse(VAS <= .1, 1,
+#                                 ifelse(
+#                                   VAS <= .20, 2,
+#                                   ifelse(VAS <= .30, 3,
+#                                          ifelse(VAS <= .40, 4,
+#                                                 ifelse(
+#                                                   VAS <= .50, 5,
+#                                                   ifelse(VAS <= .60, 6,
+#                                                          ifelse(VAS <= .70, 7,
+#                                                                 ifelse(
+#                                                                   VAS <= .80, 8,
+#                                                                   ifelse(VAS <= .90, 9,
+#                                                                          ifelse(VAS <= 1, 10))
+#                                                                 )))
+#                                                 )))
+#                                 ))))
+# 
+# ordinalRegExp1 <- 
+#   ordinal::clmm(VAScat ~
+#       Communication * Risk +
+#       Perspective +
+#       AgeZeroCenter +
+#       Sex +
+#       (1 | ResponseId),
+#     data = dataExp1,
+#     link = "logit")
 
 ```
 
 ```{r Response scale}
 ## Risk factor coefficients
+# Risk factor main effect.
+anova(ocmAgeSex, ocm4)
+
 # Minimal Risk v High Risk
 estimateMinimalHigh <- exp(-ocmTreatmentRisk$coefficients[5])
 ciLowerMinimalHigh <- exp(-ocmTreatmentRisk$coefficients[5] - .0362*1.96)
@@ -222,71 +265,103 @@ estimateLowHigh <- exp(-ocmTreatmentRisk$coefficients[4])
 ciLowerLowHigh <- exp(-ocmTreatmentRisk$coefficients[4] - .0328*1.96)
 ciUpperLowHigh <- exp(-ocmTreatmentRisk$coefficients[4] + .0328*1.96)
 
-## Communication factor coefficients
+estimateLowMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[5])
+ciLowerLowMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[5] - .0394*1.96)
+ciUpperLowMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[5] + .0394*1.96)
+
+# p-value adjustments irrelevant here - would display the same p-value in manuscript.
+
+
+```
+
+```{r Communication factor}
+## Communication factor stats
+
+# Communication factor main effect.
+anova(ocmAgeSex, ocm3)
 
 estimateImperative <- exp(ocmTreatmentCommunication$coefficients[2])
-ciLowerImperative <- exp(ocmTreatmentCommunication$coefficients[2]) - .144*1.96
-ciUpperImperative <- exp(ocmTreatmentCommunication$coefficients[2]) + .144*1.96
+ciLowerImperative <- exp(ocmTreatmentCommunication$coefficients[2] - .1363*1.96)
+ciUpperImperative <- exp(ocmTreatmentCommunication$coefficients[2] + .1363*1.96)
 
 estimateResponsibility <- exp(ocmTreatmentCommunication$coefficients[3])
-ciLowerResponsibility <- exp(ocmTreatmentCommunication$coefficients[3]) - .145*1.96
-ciUpperResponsibility <- exp(ocmTreatmentCommunication$coefficients[3]) + .145*1.96
+ciLowerResponsibility <- exp(ocmTreatmentCommunication$coefficients[3] - .1372*1.96)
+ciUpperResponsibility <- exp(ocmTreatmentCommunication$coefficients[3] + .1372*1.96)
 
-# p value adjustment.
-#p.adjust(c(.006, .44, .69), method = 'BH')
+estimateImpResp <- exp(-ocmTreatmentCommunicationRelevel$coefficients[3])
+ciLowerImpResp <- exp((-ocmTreatmentCommunicationRelevel$coefficients[3]) - .1363*1.96)
+ciUpperImpResp <- exp(-ocmTreatmentCommunicationRelevel$coefficients[3] + .1363*1.96)
+
+#p value adjustment.
+p_value_communication_exp1 <- 
+  p.adjust(c(.00382, .410, .03845), method = 'BH')
 
 ## Perspective factor coefficients
-
-estimatePerspective <- exp(ocm4$coefficients[6]*2)
-ciLowerPerspective <- exp(ocm4$coefficients[6]*2 - .0586*1.96)
-ciUpperPerspective <- exp(ocm4$coefficients[6]*2 + .0586*1.96)
+# Times two because of variable coding
+estimatePerspective <- exp(ocmAgeSex$coefficients[6]*2)
+ciLowerPerspective <- exp(ocmAgeSex$coefficients[6]*2 - .0586*1.96)
+ciUpperPerspective <- exp(ocmAgeSex$coefficients[6]*2 + .0586*1.96)
 ```
 
 ```{r reporting interactions}
 
 ## Interactions
+lrtInteractionComRisk <-
+  anova(ocmAgeSex, ocm2)
 
 # Minimal Risk
 
-estimateImperativeMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[2])
-ciLowerImperativeMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[2] - 
-                                  .1558*1.96)
-ciUpperImperativeMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[2] + 
-                                  .1558*1.96)
+estimateImperativeMinimal <- exp(ocmAllTreatmentRiskRelevel$coefficients[2])
+# p = 2.060e-05
+ciLowerImperativeMinimal <- exp(ocmAllTreatmentRiskRelevel$coefficients[2] - 
+                                  .1488*1.96)
+ciUpperImperativeMinimal <- exp(ocmAllTreatmentRiskRelevel$coefficients[2] + 
+                                  .1488*1.96)
 
-estimateResponsibilityMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[3])
-ciLowerResponsibilityMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[3] - 
-                                  .1568*1.96)
-ciUpperResponsibilityMinimal <- exp(ocmTreatmentRiskRelevel$coefficients[3] + 
-                                  .1568*1.96)
+estimateResponsibilityMinimal <- exp(ocmAllTreatmentRiskRelevel$coefficients[3])
+# p = .111
+ciLowerResponsibilityMinimal <- exp(ocmAllTreatmentRiskRelevel$coefficients[3] - 
+                                  .1498*1.96)
+ciUpperResponsibilityMinimal <- exp(ocmAllTreatmentRiskRelevel$coefficients[3] + 
+                                  .1498*1.96)
 
 # Low Risk
 
-estimateImperativeLow <- exp(ocmTreatmentRiskRelevel2$coefficients[2])
-ciLowerImperativeLow <- exp(ocmTreatmentRiskRelevel2$coefficients[2] - 
-                              .1540*1.96)
-ciUpperImperativeLow <- exp(ocmTreatmentRiskRelevel2$coefficients[2] + 
-                              .1540*1.96)
+estimateImperativeLow <- exp(ocmAllTreatmentRiskRelevel2$coefficients[2])
+# p = .00047
+ciLowerImperativeLow <- exp(ocmAllTreatmentRiskRelevel2$coefficients[2] - 
+                              .1470*1.96)
+ciUpperImperativeLow <- exp(ocmAllTreatmentRiskRelevel2$coefficients[2] + 
+                              .1470*1.96)
 
-estimateResponsibilityLow <- exp(ocmTreatmentRiskRelevel2$coefficients[3])
-ciLowerResponsibilityLow <- exp(ocmTreatmentRiskRelevel2$coefficients[3] - 
-                                  .1551*1.96)
-ciUpperResponsibilityLow <- exp(ocmTreatmentRiskRelevel2$coefficients[3] + 
-                                  .1551*1.96)
+estimateResponsibilityLow <- exp(ocmAllTreatmentRiskRelevel2$coefficients[3])
+# p = .13
+ciLowerResponsibilityLow <- exp(ocmAllTreatmentRiskRelevel2$coefficients[3] - 
+                                  .1480*1.96)
+ciUpperResponsibilityLow <- exp(ocmAllTreatmentRiskRelevel2$coefficients[3] + 
+                                  .1480*1.96)
+
 
 # High Risk
 
 estimateImperativeHigh <- exp(ocmAllTreatment$coefficients[2])
+# p = .820
 ciLowerImperativeHigh <- exp(ocmAllTreatment$coefficients[2] - 
-                                  .1462*1.96)
+                                  .1387*1.96)
 ciUpperImperativeHigh <- exp(ocmAllTreatment$coefficients[2] + 
-                                  .1462*1.96)
+                                  .1387*1.96)
 
 estimateResponsibilityHigh <- exp(ocmAllTreatment$coefficients[3])
+# p = .378
 ciLowerResponsibilityHigh <- exp(ocmAllTreatment$coefficients[3] - 
-                                  .1472*1.96)
+                                  .1398*1.96)
 ciUpperResponsibilityHigh <- exp(ocmAllTreatment$coefficients[3] + 
-                                  .1472*1.96)
+                                  .1398*1.96)
+
+#p value adjustment.
+p_value_comRisk_exp1 <- p.adjust(c(2.060e-05, .111, 
+                                         .00047, .132, 
+                                         .820, .378), method = 'BH')
 
 ```
 
@@ -300,21 +375,18 @@ ciUpperAge <- exp(ocmAgeSex$coefficients[7] +
                     .0044 * 1.96)
 
 # Sex
-estimateSex <- exp(ocmAgeSex$coefficients[8])
-ciLowerSex <- exp(ocmAgeSex$coefficients[8] -
-                    .057 * 1.96)
-ciUpperSex <- exp(ocmAgeSex$coefficients[8] +
-                    .057 * 1.96)
+estimateSex <- exp(ocmAgeSex$coefficients[8] * 2)
+ciLowerSex <- exp(ocmAgeSex$coefficients[8] * 2 -
+                    .0570 * 1.96)
+ciUpperSex <- exp(ocmAgeSex$coefficients[8] * 2 +
+                    .0570 * 1.96)
 
 ```
 
 ```{r Perspective: assessing support for the null}
 
 Exp1BayesFactorModels <-
-  bayesfactor_models(ocm4, ocm5, denominator = 1)
-
-Exp1BayesFactorInclusion <-
-  bayesfactor_inclusion(Exp1BayesFactorModels)
+  bayesfactor_models(ocmAgeSex, ocm5, denominator = 1)
 
 Exp1BayesFactorInclusion
 ```
