@@ -6,50 +6,112 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#read_csv(".data/going-out_experiment2_data")
 ```
 
+
+```{r descriptives for results section}
+
+# Vas Marker
+dataExp2 %>%
+  group_by(vasMarker) %>%
+  summarise(mean = mean(VAS),
+            sd = sd(VAS))
+
+dataExp2 %>%
+  group_by(Perspective) %>%
+  summarise(mean = mean(VAS),
+            sd = sd(VAS))
+
+
+# Sex
+dataExp2 %>%
+  group_by(Sex) %>%
+  summarise(mean = mean(VAS),
+            sd = sd(VAS))
+
+dataExp2 %>%
+  group_by(Risk) %>%
+  summarise(mean = mean(VAS),
+            sd = sd(VAS))
+
+```
+
+
 ```{r Table}
-tdfExp2 <- dataExp2 %>% group_by(Treatment, Perspective, Risk) %>%
-  summarise(Mean = round(mean(VAS),2),
-            SD = round(sd(VAS),2)) %>%
-  arrange(desc(Treatment), desc(Risk), desc(Perspective)) %>%
+tdfExp2 <- 
+  dataExp2 %>% 
+  group_by(vasMarker, Perspective, Sex) %>%
+  summarise(Mean = round(mean(Age),2),
+            SD = round(sd(Age),2),
+            N = n()/30) %>%
+  arrange(vasMarker, desc(Perspective)) %>%
   ungroup()
+
+# Create a new column for calculating percentages of male and female participants in each group.
+tempColumn <- 
+  tdfExp2 %>%
+  group_by(vasMarker, Perspective) %>%
+  summarise(n = rep(sum(N), each = 2)) %>%
+  ungroup()
+
+tdfExp2 <- 
+  tdfExp2 %>%
+  mutate(nPerc = round((N/tempColumn$n)*100, 2))
+
+tdfExp2 <-
+  tdfExp2 %>% 
+  mutate(`Mean Age (SD)` = paste(tdfExp2$Mean, " (", tdfExp2$SD, ")", sep = ""),
+         N = paste(N, " (", nPerc, "%)", sep = ""))
+
+rm(tempColumn)
+
 
 tdf1Exp2 <- 
   tdfExp2 %>% 
-  filter(Risk == "Minimal Risk") %>% 
-  select(Mean, SD)
+  filter(vasMarker == "Midpoint") %>% 
+  select(Sex, `Mean Age (SD)`, N) %>%
+  rename(` ` = Sex)
 
 tdf2Exp2 <- 
   tdfExp2 %>% 
-  filter(Risk == "Low Risk") %>% select(Mean, SD)
+  filter(vasMarker == "No Midpoint") %>% 
+  select(`Mean Age (SD)`, N)
 
-tdf3Exp2 <- 
-  tdfExp2 %>% 
-  filter(Risk == "High Risk") %>% 
-  select(Perspective, Mean, SD) %>%
-  rename(` ` = Perspective)
-
-cbind(tdf3Exp2, tdf2Exp2, tdf1Exp2) %>% 
+cbind(tdf1Exp2, tdf2Exp2) %>% 
   kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
-                full_width = T, 
-                font_size = 14) %>%
-  column_spec(c(1:2,4,6), color = "black") %>%
-  add_header_above(c(" " = 1, "High" = 2, "Low" = 2, "Minimal" = 2), align = "justify") %>%
-  add_header_above(c(" " = 1, "Risk" = 6), font_size = 18, align = "justify") %>%
-  pack_rows(group_label = "Midpoint Marker", 
-            start_row = 1, 
-            end_row = 2,
-            label_row_css = "background-color: #777; color: #fff;") %>%
-  pack_rows(group_label = "No Marker", 
-            start_row = 3, 
-            end_row = 4, 
-            label_row_css = "background-color: #777; color: #fff;") %>%
-  save_kable(file = "TableExp2.png")
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = T,
+    font_size = 14
+  ) %>%
+  add_header_above(c(
+    " " = 1,
+    "Midpoint Marker" = 2,
+    "No Midpoint Marker" = 2
+  ),
+  align = "justify") %>%
+  add_header_above(c(" " = 1, "VAS Marker" = 4),
+                   font_size = 18,
+                   align = "justify") %>%
+  pack_rows(
+    group_label = "Self",
+    start_row = 1,
+    end_row = 2,
+    label_row_css = "background-color: #777; color: #fff;"
+  ) %>%
+  pack_rows(
+    group_label = "Other",
+    start_row = 3,
+    end_row = 4,
+    label_row_css = "background-color: #777; color: #fff;"
+  ) %>%
+  save_kable(file = "./figures/tables/going-out_table_Exp2.png")
 
 
 
 ```
+
+
+
 

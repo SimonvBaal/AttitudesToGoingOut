@@ -6,14 +6,13 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(ggpubr)
 ```
 
 ```{r Graphs}
 dataExp2 <- 
   dataExp2 %>% 
-  mutate(PerspectiveNumeric = ifelse(Perspective == "Self", 1, 0),
-         VAS = VAS/100)
+  mutate(PerspectiveNumeric = ifelse(Perspective == "Self", 1, 0))
 
 # The palette with black:
 cbbPalette <- c("#000000", "#E69F00", 
@@ -27,7 +26,7 @@ h = 4
 
 Midpoint_Density <- 
   ggplot(dataExp2 %>% 
-           filter(Treatment == "Midpoint"), 
+           filter(vasMarker == "Midpoint"), 
          aes(x = VAS, fill = Perspective)) +
   geom_density(alpha = 0.4) +
   geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.05), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
@@ -39,7 +38,7 @@ Midpoint_Density <-
 
 NoMidpoint_Density <- 
   ggplot(dataExp2 %>% 
-           filter(Treatment == "No Midpoint"), 
+           filter(vasMarker == "No Midpoint"), 
          aes(x = VAS, fill = Perspective)) +
   geom_density(alpha = 0.4) +
   geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.05), 
@@ -50,7 +49,7 @@ NoMidpoint_Density <-
   scale_fill_manual(values = cbbPalette) +
   theme_light()
 
-TreatmentPlots <-
+vasMarkerPlots <-
   ggarrange(
     Midpoint_Density,
     NoMidpoint_Density,
@@ -60,79 +59,144 @@ TreatmentPlots <-
     common.legend = TRUE,
     legend = "bottom"
   )
-TreatmentPlots
+vasMarkerPlots
 ggsave("./figures/DensityPlotExp2.png", width = 2*w, height = 1.3*h) 
 
 ################# Density plot of VAS per group
-a <- 
-  ggplot(dataExp2 %>% filter(Treatment == "Midpoint", Risk == "High Risk"), 
-         aes(x = VAS, fill = Perspective)) +
+a <-
+  ggplot(
+    dataExp2 %>% filter(vasMarker == "Midpoint", Risk == "High Risk"),
+    aes(x = VAS, fill = Perspective)
+  ) +
   geom_density(alpha = 0.4) +
-  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
-  labs(title = "VAS Midpoint, High Risk") + 
-  ylab("Density") + 
+  geom_boxplot(
+    aes(x = VAS, y = PerspectiveNumeric * 0.1 - 0.25),
+    alpha = .4,
+    colour = "black",
+    notch = TRUE,
+    outlier.alpha = .4,
+    outlier.size = 1,
+  ) +
+  labs(title = "VAS Midpoint, High Risk") +
+  ylab("Density") +
   xlab("Permissiveness") +
+  lims(y = c(-0.3, 4.2)) +
   theme_light()
 
-b <- 
-  ggplot(dataExp2 %>% filter(Treatment == "Midpoint", Risk == "Low Risk"), 
-         aes(x = VAS, fill = Perspective)) +
+b <-
+  ggplot(
+    dataExp2 %>% filter(vasMarker == "Midpoint", Risk == "Low Risk"),
+    aes(x = VAS, fill = Perspective)
+  ) +
   geom_density(alpha = 0.4) +
-  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
-  labs(title = "VAS Midpoint, Low Risk") + 
-  ylab("Density") + 
+  geom_boxplot(
+    aes(x = VAS, y = PerspectiveNumeric * 0.1 - 0.25),
+    alpha = .4,
+    colour = "black",
+    notch = TRUE,
+    outlier.alpha = .4,
+    outlier.size = 1,
+  ) +
+  labs(title = "VAS Midpoint, Low Risk") +
   xlab("Permissiveness") +
-  theme_light()
+  lims(y = c(-0.3, 4.2)) +
+  theme_light() +
+  theme(axis.title.y = element_blank())
 
-c <- 
-  ggplot(dataExp2 %>% filter(Treatment == "Midpoint", Risk == "Minimal Risk"), 
-         aes(x = VAS, fill = Perspective)) +
+c <-
+  ggplot(
+    dataExp2 %>% filter(vasMarker == "Midpoint", Risk == "Minimal Risk"),
+    aes(x = VAS, fill = Perspective)
+  ) +
   geom_density(alpha = 0.4) +
-  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
-  labs(title = "VAS Midpoint, Minimal Risk") + 
-  ylab("Density") + 
+  geom_boxplot(
+    aes(x = VAS, y = PerspectiveNumeric * 0.1 - 0.25),
+    alpha = .4,
+    colour = "black",
+    notch = TRUE,
+    outlier.alpha = .4,
+    outlier.size = 1,
+  ) +
+  labs(title = "VAS Midpoint, Minimal Risk") +
   xlab("Permissiveness") +
-  theme_light()
+    lims(y = c(-0.3, 4.2)) +
+  theme_light() +
+  theme(axis.title.y = element_blank())
 
-d <- 
-  ggplot(dataExp2 %>% filter(Treatment == "No Midpoint", Risk == "High Risk"), 
-         aes(x = VAS, fill = Perspective)) +
+d <-
+  ggplot(
+    dataExp2 %>% filter(vasMarker == "No Midpoint", Risk == "High Risk"),
+    aes(x = VAS, fill = Perspective)
+  ) +
   geom_density(alpha = 0.4) +
-  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
-  labs(title = "No Midpoint, High Risk") + 
-  ylab("Density") + 
-  xlab("Permissiveness") +
-  theme_light()
+  geom_boxplot(
+    aes(x = VAS, y = PerspectiveNumeric * 0.1 - 0.25),
+    alpha = .4,
+    colour = "black",
+    notch = TRUE,
+    outlier.alpha = .4,
+    outlier.size = 1,
+  ) +
+  labs(title = "No Midpoint, High Risk",
+       x = "Permissiveness",
+       y = "Density") +
+  lims(y = c(-0.3, 4.2)) +
+  theme_light() +
+  theme(axis.title.y = element_blank())
 
-e <- 
-  ggplot(dataExp2 %>% filter(Treatment == "No Midpoint", Risk == "Low Risk"), 
-         aes(x = VAS, fill = Perspective)) +
+e <-
+  ggplot(
+    dataExp2 %>% filter(vasMarker == "No Midpoint", Risk == "Low Risk"),
+    aes(x = VAS, fill = Perspective)
+  ) +
   geom_density(alpha = 0.4) +
-  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
-  labs(title = "No Midpoint, Low Risk") + 
-  ylab("Density") + 
-  xlab("Permissiveness") +
-  theme_light()
+  geom_boxplot(
+    aes(x = VAS, y = PerspectiveNumeric * 0.1 - 0.25),
+    alpha = .4,
+    colour = "black",
+    notch = TRUE,
+    outlier.alpha = .4,
+    outlier.size = 1,
+  ) +
+  labs(title = "No Midpoint, Low Risk",
+       x = "Permissiveness") +
+    lims(y = c(-0.3, 4.2)) +
+  theme_light() +
+  theme(axis.title.y = element_blank())
 
-f <- 
-  ggplot(dataExp2 %>% filter(Treatment == "No Midpoint", Risk == "Minimal Risk"), 
-         aes(x = VAS, fill = Perspective)) +
+f <-
+  ggplot(
+    dataExp2 %>% filter(vasMarker == "No Midpoint", Risk == "Minimal Risk"),
+    aes(x = VAS, fill = Perspective)
+  ) +
   geom_density(alpha = 0.4) +
-  geom_boxplot(aes(x = VAS, y = PerspectiveNumeric * -0.0015 + 0.045), alpha = .4, colour = "black",notch = TRUE, coef = 1 ) +
-  labs(title = "No Midpoint, Minimal Risk") + 
-  ylab("Density") + 
-  xlab("Permissiveness") +
-  theme_light()
+  geom_boxplot(
+    aes(x = VAS, y = PerspectiveNumeric * 0.1 - 0.25),
+    alpha = .4,
+    colour = "black",
+    notch = TRUE,
+    outlier.alpha = .4,
+    outlier.size = 1,
+  ) +
+  labs(title = "No Midpoint, Minimal Risk",
+       x = "Permissiveness") +
+  lims(y = c(-0.3, 4.2)) +
+  theme_light() +
+  theme(axis.title.y = element_blank())
 
 
 RiskPlots_Exp2 <- 
   ggarrange(a, b, c, d, e, f ,
             labels = c("A", "B", "C", "D", "E", "F"), 
             nrow = 2, ncol = 3, common.legend = TRUE, legend = "bottom")
-ggsave("./figures/RiskPlotsExp2.png", width = 3*w, height = 2.5*h) 
+ggsave("./figures/RiskPlotsExp2.png", width = 2.25*w, height = 1.875*h) 
 
 RiskPlots_Exp2
 
+```
+
+
+```{r plots cont'd}
 ################################################## Box Plots
 
 
@@ -165,7 +229,7 @@ boxRiskExp2 <-
     "text",
     x = c(-.035, -.035, -.09),
     y = c(1.75, 2.75, 2.25),
-    label = "***",
+    label = "**",
     angle = 90,
     size = 7
   ) +
@@ -176,7 +240,7 @@ boxRiskExp2 <-
   guides(fill = guide_legend(reverse = TRUE)) +
   theme_light()
 boxRiskExp2
-ggsave("./figures/exp2RiskBoxPlot.png")
+ggsave("./figures/exp2RiskBoxPlot.png", width = w, height = h)
 
 
 

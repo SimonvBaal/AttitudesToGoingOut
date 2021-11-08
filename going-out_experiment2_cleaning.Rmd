@@ -7,43 +7,47 @@ output: html_document
 
 ```{r load data, include=FALSE}
 # Don't mind the errors, that's due to the column names Qualtrics creates.
-RawData_Self_Other <- read_csv("./data/Self-Isolation_No_Marker.csv")
-RawData_VAS <- read_csv("./data/Self-Isolation_VAS.csv")
+RawData_Self_Other <- read_csv("./raw-data/going-out_raw-data_no-marker.csv")
+RawData_VAS <- read_csv("./raw-data/going-out_raw-data_midpoint.csv")
 ```
 
 ```{r Data cleaning, include = FALSE}
-Self_SO <- 
+selfNoMarker <- 
   RawData_Self_Other %>% 
   filter(Group == "Self") %>% 
   select_if(function(x) !any(is.na(x))) %>%
   dplyr::select(-contains('RT'))
 
-Other_SO <- 
+otherNoMarker <- 
   RawData_Self_Other %>%
   filter(Group == "Other") %>%
   select_if(function(x) !any(is.na(x))) %>%
   dplyr::select(-contains('RT'))
 
-Self_VAS <- 
+selfWithMarker <- 
   RawData_VAS %>% 
   filter(Group == "Self") %>% 
   select_if(function(x) !any(is.na(x))) %>%
   dplyr::select(-contains('RT'))
 
-Other_VAS <- 
+otherWithMarker <- 
   RawData_VAS %>%
   filter(Group == "Other") %>%
   select_if(function(x) !any(is.na(x))) %>%
   dplyr::select(-contains('RT'))
 
 #Now rbind the 12 datasets created.
-colnames(Self_SO) <- colnames(Other_SO)
-colnames(Self_VAS) <- colnames(Other_SO)
-colnames(Other_VAS) <- colnames(Other_SO)
+colnames(selfNoMarker) <- colnames(otherNoMarker)
+colnames(selfWithMarker) <- colnames(otherNoMarker)
+colnames(otherWithMarker) <- colnames(otherNoMarker)
 
-dataExp2 <- rbind(Self_SO, Other_SO, Self_VAS, Other_VAS)
+dataExp2 <- 
+  rbind(selfNoMarker, otherNoMarker, 
+        selfWithMarker, otherWithMarker) %>%
+  rename(Perspective = Group)
 
-rm(Other_SO, Other_VAS, Self_SO, Self_VAS)
+rm(otherNoMarker, otherWithMarker, 
+   selfNoMarker, selfWithMarker)
 
 ```
 
@@ -53,15 +57,15 @@ rm(Other_SO, Other_VAS, Self_SO, Self_VAS)
 dataExp2 <- 
   dataExp2 %>% 
   as_tibble() %>% 
-  mutate(Perspective = factor(Group),
-         Treatment = factor(
+  mutate(vasMarker = factor(
            ifelse(
              Treatment == "VAS", "Midpoint", "No Midpoint"
            )
          ),
          Sex = factor(Sex),
-         Group = NULL) %>%
-  dplyr::select(ResponseId, Perspective, Treatment, GC, ends_with("_1"), everything())
+         Perspective = factor(Perspective)) %>%
+  dplyr::select(-Treatment) %>%
+  dplyr::select(ResponseId, Perspective, vasMarker, GC, ends_with("_1"), everything())
 
 names(dataExp2)[5:34] <- sprintf("Question_%s",seq(1:30))
 rm(RawData_Self_Other, RawData_VAS)
@@ -69,18 +73,20 @@ rm(RawData_Self_Other, RawData_VAS)
 #Create long data.
 dataExp2 <- 
   dataExp2 %>%
-  gather(key = "Question", value = "VAS", Question_1 : Question_30, factor_key = TRUE) %>%
+  gather(key = "Question", value = "VAS", 
+         Question_1 : Question_30, factor_key = TRUE) %>%
   arrange(ResponseId) %>%
   mutate(Risk = factor(rep(rep(
-    RiskLevelSequence, times = nrow(dataExp2)))))
+    RiskLevelSequence, times = nrow(dataExp2)))),
+    VAS = VAS/100)
 
 #Exclude participants who only report at the bounds etc
 dataExp2 <-
   dataExp2 %>% 
   group_by(ResponseId) %>% 
   filter(
-    round(mean(VAS)) > 0 & 
-    round(mean(VAS)) < 100, 
+    round(mean(VAS), 2) > 0 & 
+    round(mean(VAS), 2) < 1, 
     Sex != "Other") %>%
   ungroup() %>%
   mutate(AgeZeroCenter = Age - mean(Age))
@@ -89,15 +95,16 @@ dataExp2 <-
 # it is ok to go out (certain it is not alright - certain it is alright)
 
 ## Descriptives for in the paper
-Descriptives <- dataExp2 %>%
+Descriptives <- 
+  dataExp2 %>%
   group_by(Sex) %>%
   summarise(MeanAge = round(mean(Age), 1),
             SdAge = round(sd(Age, na.rm = TRUE), 1),
-            n()/nrow(dataExp2)
-            )
+            n() / nrow(dataExp2))
 
-Aggregates <- dataExp2 %>%
-  group_by(Perspective, Treatment, ResponseId, Sex) %>%
+Aggregates <- 
+  dataExp2 %>%
+  group_by(Perspective, vasMarker, ResponseId, Sex) %>%
   summarise(VAS = mean(VAS),
             Self_Rank = mean(GC),
             Age = mean(Age)) %>%
@@ -108,4 +115,12 @@ dataExp2 <-
   dataExp2 %>%
   mutate(Sex = factor(Sex),
          ResponseId = factor(ResponseId))
+```
+
+
+```{r Save data}
+
+write_csv(dataExp2, "./data/going-out_experiment2_data.csv")
+
+
 ```
