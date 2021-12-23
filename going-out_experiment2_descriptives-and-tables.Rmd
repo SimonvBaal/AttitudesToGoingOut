@@ -78,7 +78,8 @@ tdf2Exp2 <-
   filter(vasMarker == "No Midpoint") %>% 
   select(`Mean Age (SD)`, N)
 
-cbind(tdf1Exp2, tdf2Exp2) %>% 
+table2 <-
+  cbind(tdf1Exp2, tdf2Exp2) %>% 
   kable() %>%
   kable_styling(
     bootstrap_options = c("striped", "hover", "condensed", "responsive"),
@@ -105,8 +106,8 @@ cbind(tdf1Exp2, tdf2Exp2) %>%
     start_row = 3,
     end_row = 4,
     label_row_css = "background-color: #777; color: #fff;"
-  ) %>%
-  save_kable(file = "./figures/tables/going-out_table_Exp2.png")
+  )
+cat(table2, file = "./figures/tables/going-out_table_Exp2.html")
 
 
 

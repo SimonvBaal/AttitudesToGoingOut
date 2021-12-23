@@ -24,7 +24,7 @@ DescriptivesLang <-
 # For table in appendix.
 DescriptivesArms <-
   dataExp1 %>%
-  group_by(Perspective, Condition, Sex) %>%
+  group_by(Perspective, Communication, Sex) %>%
   summarise(meanAge = mean(Age), 
             sdAge = sd(Age),
             medianAge = median(Age),
@@ -116,22 +116,37 @@ tdf3 <-
   filter(Communication == "Control") %>%
   select(`Mean Age (SD)`, N)
 
-cbind(tdf1, tdf2, tdf3) %>% 
+table1 <-
+  cbind(tdf1, tdf2, tdf3) %>%
   kable() %>%
-    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
-                full_width = T,
-                font_size = 14) %>%
-    add_header_above(c(" " = 1, "Imperative" = 2, "Personal Resp." = 2, "Control" = 2), align = "justify") %>%
-  add_header_above(c(" " = 1, "Communication" = 6), font_size = 18, align = "justify") %>%
-  pack_rows(group_label = "Self", 
-            start_row = 1, 
-            end_row = 2,
-            label_row_css = "background-color: #777; color: #fff;") %>%
-  pack_rows(group_label = "Other", 
-            start_row = 3, 
-            end_row = 4, 
-            label_row_css = "background-color: #777; color: #fff;") %>%
-  save_kable(file = "./figures/tables/going-out_table_Exp1.png")
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = T,
+    font_size = 14
+  ) %>%
+  add_header_above(c(
+    " " = 1,
+    "Imperative" = 2,
+    "Personal Resp." = 2,
+    "Control" = 2
+  ),
+  align = "justify") %>%
+  add_header_above(c(" " = 1, "Communication" = 6),
+                   font_size = 18,
+                   align = "justify") %>%
+  pack_rows(
+    group_label = "Self",
+    start_row = 1,
+    end_row = 2,
+    label_row_css = "background-color: #777; color: #fff;"
+  ) %>%
+  pack_rows(
+    group_label = "Other",
+    start_row = 3,
+    end_row = 4,
+    label_row_css = "background-color: #777; color: #fff;"
+  )
+cat(table1, file = "./figures/tables/going-out_table_Exp1.html")
 
 
 ```
